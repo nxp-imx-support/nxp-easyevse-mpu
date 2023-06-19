@@ -1,0 +1,23 @@
+# NXP EasyEVSE Linux demo application
+
+The NXP EasyEVSE Linux application is a demo showcasing basic functionalities of an EV charger software application running on an i.MX MPU Evaluation Kit. The graphic user interface is built using Qt and the cloud application sends data to an Azure IoT Central instance.
+
+For more information about the EasyEVSE Linux demo and supported boards, please see <https://www.nxp.com/design/designs/easyevse-ev-charging-station-development-platform:CONNECTED-EV-CHARGING-STATION>.
+For information on how to get an i.MX evaluation kit, please see <https://www.nxp.com/products/processors-and-microcontrollers/arm-processors/i-mx-applications-processors>. 
+
+## Licensing
+
+All software in this repository falls under the LA_OPT_NXP_Software_License v46 June 2023 with the following exceptions:
+
+### Source code
+
+- /cloud/cloud_app.c is covered by MIT;
+- /include/typedefs.h is covered by Apache 2.0;
+- /nfc/nfc_api.c is covered by Apache 2.0.
+
+### Graphical assets 
+
+- Assets in gui/images/nxp is covered by CC0-1.0;
+- Assets in gui/images/third-party is covered by CC-BY-4.0.
+
+

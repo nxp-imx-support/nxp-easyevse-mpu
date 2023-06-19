@@ -1,0 +1,12 @@
+NXP Software Content Register
+
+Package:                     NXP EasyEVSE Linux demo application
+Outgoing License:            LA_OPT_NXP_Software_License v46 June 2023  - Standard License in Section 2.2 applies
+License File:                LICENSE
+Package Category:            Demo application
+Type of Content:             Source code, images
+Description and comments:    i.MX EasyEVSE Linux demo programs source code and images
+Release Location:            https://github.com/nxp-imx-support/nxp-easyevse-mpu
+Origin:                      NXP (LA_OPT_NXP_Software_License, Apache 2.0, CC0-1.0)
+                             Microsoft (MIT)                     
+                             Font Awesome (CC-BY-4.0) https://fontawesome.com/icons
