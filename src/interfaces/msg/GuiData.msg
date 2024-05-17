@@ -1,0 +1,1 @@
+bool        user_stop_req

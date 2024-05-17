@@ -1,12 +1,49 @@
 NXP Software Content Register
 
 Package:                     NXP EasyEVSE Linux demo application
-Outgoing License:            LA_OPT_NXP_Software_License v46 June 2023  - Standard License in Section 2.2 applies
+Version:                     2.0
+Outgoing License:            Apache-2.0
 License File:                LICENSE
-Package Category:            Demo application
-Type of Content:             Source code, images
 Description and comments:    i.MX EasyEVSE Linux demo programs source code and images
 Release Location:            https://github.com/nxp-imx-support/nxp-easyevse-mpu
-Origin:                      NXP (LA_OPT_NXP_Software_License, Apache 2.0, CC0-1.0)
-                             Microsoft (MIT)                     
+Origin:                      NXP (Apache-2.0, CC0-1.0)
+                             Microsoft (MIT) https://github.com/Azure/azure-iot-sdk-c
                              Font Awesome (CC-BY-4.0) https://fontawesome.com/icons
+
+nxp-graphics                 Name: NXP graphics
+                             Version: 2.0
+                             Outgoing License: CC0-1.0
+                             License File: Licenses/CC0-1.0.txt
+                             Format: PNG
+                             Description and comments: Original NXP geometric images for GUI screens
+                             Release Location: https://github.com/nxp-imx-support/nxp-easyevse-mpu/src/easyevse/src/gui/images/*.png
+                             Origin: NXP (CC0-1.0)
+
+Azure IoT SDK                Name: Azure IoT SDK
+                             Version: 1.13.0
+                             Outgoing License: MIT
+                             License File: Licenses/LICENSE.MIT
+                             Format: source code
+                             Description and comments: Azure cloud sample code
+                             Release Location:
+                                     https://github.com/nxp-imx-support/nxp-easyevse-mpu/src/easyevse/src/cloud/cloud_api.c
+                                     https://github.com/nxp-imx-support/nxp-easyevse-mpu/src/easyevse/include/easyevse/cloud_api.h
+                             Origin: Microsoft (MIT) https://github.com/Azure/azure-iot-sdk-c
+
+Font Awesome                 Name: Font Awesome
+                             Version: 6.5.2
+                             Outgoing License: CC-BY-4.0
+                             License File: Licenses/CC-BY-4.0.txt
+                             Format: SVG
+                             Description and comments: Graphics image files
+                             Release Location: https://github.com/nxp-imx-support/nxp-easyevse-mpu/src/easyevse/src/gui/images/third-party/
+                             Origin: Font Awesome (CC-BY-4.0) https://fontawesome.com/icons
+
+cloud-manual-provisioning    Name: cloud-manual-provisioning
+                             Version: 2.0
+                             Outgoing License: Apache-2.0
+                             License File: Licenses/Apache-2.0.txt
+                             Format: source code
+                             Description and comments: Software for manual SE05x provisioning of CLOUD app services. Not linked to the EasyEVSE apps. Referenced in the EasyEVSE User Manual. Includes Apache-2.0 software from Plug & Trust Middleware v04.05.00.
+                             Release Location: https://github.com/nxp-imx-support/nxp-easyevse-mpu/src/cloud-manual-provisioning
+                             Origin: NXP (Apache-2.0)
