@@ -107,10 +107,14 @@ private:
   {
     bool result = false, tempb = false;
     
-    if(cloud_data.grid_pwr_lim != msg->grid_pwr_lim && stack_data.charging )
+    if(cloud_data.grid_pwr_lim != msg->grid_pwr_lim)
     {
       cloud_data.grid_pwr_lim = msg->grid_pwr_lim;
-      setMaxCurrentLimit();
+
+      if(stack_data.charging)
+      {
+        setMaxCurrentLimit();
+      }
     }
     cloud_data.tariff_cost = msg->tariff_cost;
     cloud_data.tariff_rate = msg->tariff_rate;

@@ -9,7 +9,7 @@ export OPENSSL_CONF="${OPENSSL_CONF:-/etc/ssl/openssl11_sss_se050.cnf}"
 . /etc/profile.d/ros/setup.sh
 
 # This is the order the clients should start. Do not modify it.
-clients=("BUSINESS_LOGIC" "GUI" "CLOUD" "NFC" "SEVENSTAX")
+clients=("BUSINESS_LOGIC" "GUI" "NFC" "SEVENSTAX" "CLOUD")
 
 function handle_ctrlc()
 {
@@ -29,7 +29,7 @@ trap handle_ctrlc SIGINT
 if [ $# -eq 0 ]; then
 	echo
 	echo "ERROR: No argument provided"
-	echo "Valid arguments are: NFC, GUI, CLOUD, BUSINESS_LOGIC, SEVENSTAX, all"
+	echo "Valid arguments are: NFC, GUI, BUSINESS_LOGIC, SEVENSTAX, CLOUD, all"
 	echo
 	echo "To start all clients:"
     echo "./easyevse-startup.sh all"
