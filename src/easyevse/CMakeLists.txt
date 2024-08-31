@@ -42,7 +42,7 @@ find_package(Qt6 REQUIRED Widgets Core Quick)
 find_package(interfaces REQUIRED)
 
 add_executable(NFC src/nfc/nfcNode.cpp src/nfc/nfc_api.c src/nfc/tools.c src/common/logger.c src/common/utils.c)
-add_executable(GUI src/gui/guiNode.cpp src/gui/mainwindow.cpp src/gui/mainwindow.ui src/gui/resources.qrc src/gui/mainwindow.h)
+add_executable(GUI src/gui/guiNode.cpp src/gui/mainwindow.cpp src/gui/resources.qrc src/gui/mainwindow.h src/gui/top_stackedwidget.h src/gui/top_stackedwidget.cpp)
 add_executable(CLOUD src/cloud/cloudNode.cpp src/cloud/cloud_api.c src/common/utils.c ../../azure-iot-sdk-c/certs/certs.c src/common/logger.c src/cloud/snw_sss.cpp)
 add_executable(BUSINESS_LOGIC src/business_logic/businessLogicNode.cpp)
 add_executable(SEVENSTAX src/sevenstax/sevenstaxNode.cpp)

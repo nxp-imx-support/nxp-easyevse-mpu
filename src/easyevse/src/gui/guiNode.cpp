@@ -19,7 +19,6 @@
 #include "interfaces/msg/nfc_data.hpp"
 #include "interfaces/msg/stack_data.hpp"
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 #include <QApplication>
 
 
@@ -113,9 +112,9 @@ private:
     general_data.evse_id = msg->evse_id;
     general_data.evse_rating = msg->evse_rating;
 
-    w->ui->lineEdit_Power_Rate->setText(QString("%2").arg(msg->evse_rating));
-    w->ui->lineEdit_EVSE_ID->setText(QString("%2").arg((msg->evse_id).c_str()));
-    w->ui->lineEdit_Temperature->setText(QString("%2").arg(msg->temperature));
+    w->stacked_widget.lineEdit_Power_Rate.setText(QString("%2").arg(msg->evse_rating));
+    w->stacked_widget.lineEdit_EVSE_ID.setText(QString("%2").arg((msg->evse_id).c_str()));
+    w->stacked_widget.lineEdit_Temperature.setText(QString("%2").arg(msg->temperature));
   }
 
   void stack_data_callback(const interfaces::msg::StackData::SharedPtr msg)
@@ -132,17 +131,20 @@ private:
     stack_data.protocol = msg->protocol;
     stack_data.charging = msg->charging;
 
-    w->ui->lineEdit_Vehicle_ID->setText(QString("%2").arg((msg->evcc_id).c_str()));
-    w->ui->lineEdit_Auth_State->setText(QString("%2").arg((msg->vehicle_auth).c_str()));
-    w->ui->lineEdit_Requested_Energy->setText(QString("%2").arg((msg->energy_requested/1000.0)));
-    w->ui->lineEdit_Charge_Current->setText(QString("%2").arg((msg->chg_rate)));
-    w->ui->lineEdit_Charge_Cost->setText(QString("%2").arg(msg->chg_cost));
-    w->ui->lineEdit_Elapsed_Time->setText(QString("%2").arg((msg->chg_elapsed_time).c_str()));
-    w->ui->lineEdit_Time2Charge->setText(QString("%2").arg((msg->chg_remaining_time).c_str()));
-    w->ui->lineEdit_Mode->setText(QString("%2").arg((msg->chg_state).c_str()));
-    w->ui->lineEdit_Delivered_Energy->setText(QString("%2").arg((msg->energy_delivered/1000.0)));
-    w->ui->lineEdit_Protocol->setText(QString("%2").arg((msg->protocol).c_str()));
-    w->ui->radioButton_Charge_State->setChecked(msg->charging);
+    w->stacked_widget.lineEdit_Vehicle_ID.setText(QString("%2").arg((msg->evcc_id).c_str()));
+    w->stacked_widget.lineEdit_Auth_State.setText(QString("%2").arg((msg->vehicle_auth).c_str()));
+    w->stacked_widget.lineEdit_Requested_Energy.setText(QString("%2").arg((msg->energy_requested/1000.0)));
+    w->stacked_widget.lineEdit_Charge_Current.setText(QString("%2").arg((msg->chg_rate)));
+    w->stacked_widget.lineEdit_Charge_Cost.setText(QString("%2").arg(msg->chg_cost));
+    w->stacked_widget.lineEdit_Elapsed_Time.setText(QString("%2").arg((msg->chg_elapsed_time).c_str()));
+    w->stacked_widget.lineEdit_Time2Charge.setText(QString("%2").arg((msg->chg_remaining_time).c_str()));
+    w->stacked_widget.lineEdit_Mode.setText(QString("%2").arg((msg->chg_state).c_str()));
+    w->stacked_widget.lineEdit_Delivered_Energy.setText(QString("%2").arg((msg->energy_delivered/1000.0)));
+    w->stacked_widget.lineEdit_Protocol.setText(QString("%2").arg((msg->protocol).c_str()));
+    if(msg->charging)
+        w->stacked_widget.lineEdit_Charge_State.setStyleSheet("QLineEdit {background-color: #0f0; border: 0px;}");
+    else
+        w->stacked_widget.lineEdit_Charge_State.setStyleSheet("QLineEdit {background-color: #eee; border: 0px;}");
 
     //w->UpdateBattery((msg->chg_state).c_str());
   }
@@ -153,14 +155,14 @@ private:
     meter_data.voltage = msg->voltage;
     meter_data.power = msg->power;
 
-    w->ui->lineEdit_VARh->setText(QString("%2").arg(0));
-    w->ui->lineEdit_Reactive->setText(QString("%2").arg(0));
-    w->ui->lineEdit_Active->setText(QString("%2").arg(msg->power/1000.0));
-    w->ui->lineEdit_Apparent->setText(QString("%2").arg(msg->power/1000.0));
+    w->stacked_widget.lineEdit_VARh.setText(QString("%2").arg(0));
+    w->stacked_widget.lineEdit_Reactive.setText(QString("%2").arg(0));
+    w->stacked_widget.lineEdit_Active.setText(QString("%2").arg(msg->power/1000.0));
+    w->stacked_widget.lineEdit_Apparent.setText(QString("%2").arg(msg->power/1000.0));
     
-    w->ui->lineEdit_I_RMS->setText(QString("%2").arg(msg->current));
-    w->ui->lineEdit_V_RMS->setText(QString("%2").arg(msg->voltage));
-    w->ui->lineEdit_KW->setText(QString("%2").arg(msg->power/1000.0));
+    w->stacked_widget.lineEdit_I_RMS.setText(QString("%2").arg(msg->current));
+    w->stacked_widget.lineEdit_V_RMS.setText(QString("%2").arg(msg->voltage));
+    w->stacked_widget.lineEdit_KW.setText(QString("%2").arg(msg->power/1000.0));
   }
 
   void nfc_data_callback(const interfaces::msg::NfcData::SharedPtr msg)
@@ -168,7 +170,7 @@ private:
     nfc_data.nfc_id = msg->nfc_id;
 
     //RCLCPP_INFO(this->get_logger(), "NFC ID: '%s'", msg->nfc_id.c_str());
-    w->ui->lineEdit_Card_UID->setText(QString("%2").arg(msg->nfc_id.c_str()));
+    w->stacked_widget.lineEdit_Card_UID.setText(QString("%2").arg(msg->nfc_id.c_str()));
   }
 
   void cloud_data_callback(const interfaces::msg::CloudData::SharedPtr msg)
@@ -178,7 +180,7 @@ private:
     cloud_data.tariff_rate = msg->tariff_rate;
     cloud_data.grid_stop_req = msg->grid_stop_req;
 
-    w->ui->lineEdit_Grid_Limit->setText(QString("%2").arg(msg->grid_pwr_lim));
+    w->stacked_widget.lineEdit_Grid_Limit.setText(QString("%2").arg(msg->grid_pwr_lim));
   }
 
   interfaces::msg::CloudData cloud_data;
@@ -234,7 +236,7 @@ int main(int argc, char * argv[])
   node->init_gui_data();
 
   std::thread ros_thread(ros_run);
-  w->show();
+  w->showFullScreen();
   app.exec();
   rclcpp::shutdown();
   delete w;
