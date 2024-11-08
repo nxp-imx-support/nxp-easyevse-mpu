@@ -11,7 +11,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("EasyEVSE");
-    this->setCentralWidget(&stacked_widget);
+    this->setCentralWidget(&top_widget_inst);
 }
 
 MainWindow::~MainWindow()

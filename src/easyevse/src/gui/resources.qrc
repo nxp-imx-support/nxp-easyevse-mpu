@@ -1,11 +1,10 @@
 <RCC>
     <qresource prefix="/">
-        <file>images/plainpng.png</file>
-        <file>images/mainpng.png</file>
-        <file>images/third-party/bolt-solid.svg</file>
-        <file>images/third-party/car-battery-solid.svg</file>
-        <file>images/third-party/car-solid.svg</file>
-        <file>images/third-party/circle-arrow-left-solid.svg</file>
-        <file>images/third-party/id-card-solid.svg</file>
+        <file>images/icon_lib/a-charge-station.svg</file>
+        <file>images/icon_lib/a-vehicle.svg</file>
+        <file>images/icon_lib/a-energy-charge.svg</file>
+        <file>images/icon_lib/cloud-connectivity.svg</file>
+        <file>images/icon_lib/sc-id-card.svg</file>
+        <file>images/icon_lib/hmi.svg</file>
     </qresource>
 </RCC>

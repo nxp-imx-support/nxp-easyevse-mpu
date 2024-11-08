@@ -9,7 +9,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "top_stackedwidget.h"
+#include "top_widget.h"
 
 class MainWindow : public QMainWindow
 {
@@ -19,7 +19,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    top_stackedwidget stacked_widget;
+    top_widget top_widget_inst;
 
 };
 #endif // MAINWINDOW_H
