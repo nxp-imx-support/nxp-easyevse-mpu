@@ -80,10 +80,10 @@ public:
     stack_data.energy_delivered = 0.0;
     stack_data.protocol = "none";
     stack_data.charging = false;
-    stack_data.energyTransferDir = APPL_V2G_AC_BPT_CHARGING;
-    stack_data.presentSOC = 0;
-    stack_data.evPresentVoltageDis = 0.0;
-    stack_data.evPresentCurrentDis = 0.0;
+    stack_data.energy_transfer_dir = 0;
+    stack_data.present_soc = 0;
+    stack_data.ev_present_voltage_dis = 0.0;
+    stack_data.ev_present_current_dis = 0.0;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;
@@ -146,9 +146,9 @@ private:
     w->top_widget_inst.lineEdit_Delivered_Energy.setText(QString("%2").arg((msg->energy_delivered/1000.0)));
     w->top_widget_inst.lineEdit_Protocol.setText(QString("%2").arg((msg->protocol).c_str()));
     if(msg->charging) {
-	if(msg->energyTransferDir == APPL_V2G_AC_BPT_CHARGING)
+	if(msg->energy_transfer_dir == 0)
             w->top_widget_inst.energy_mode_flag = "charging";
-	else if(msg->energyTransferDir == APPL_V2G_AC_BPT_DISCHARGING)
+	else if(msg->energy_transfer_dir == 1)
 	    w->top_widget_inst.energy_mode_flag = "discharging";
 	else
 	    w->top_widget_inst.energy_mode_flag = "unknown";
@@ -156,9 +156,9 @@ private:
         w->top_widget_inst.energy_mode_flag = "unknown";
     }
 
-    w->top_widget_inst.pb.setValue(msg->presentSOC / 100.0);
-    w->top_widget_inst.lineEdit_DisChg_V.setText(QString("%2").arg((msg->presentVoltageDis)));
-    w->top_widget_inst.lineEdit_DisChg_I.setText(QString("%2").arg((msg->presentCurrentDis)));
+    //w->top_widget_inst.pb.setValue(msg->present_soc % 100);
+    w->top_widget_inst.lineEdit_DisChg_V.setText(QString("%2").arg((msg->ev_present_voltage_dis)));
+    w->top_widget_inst.lineEdit_DisChg_I.setText(QString("%2").arg((msg->ev_present_current_dis)));
     //w->UpdateBattery((msg->chg_state).c_str());
   }
 

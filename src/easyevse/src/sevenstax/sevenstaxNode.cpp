@@ -79,10 +79,10 @@ public:
     stack_data.energy_delivered = 0.0;
     stack_data.protocol = "none";
     stack_data.charging = false;
-    stack_data.energyTransferDir = APPL_V2G_AC_BPT_CHARGING;
-    stack_data.presentSOC = 0;
-    stack_data.evPresentVoltageDis = 0.0;
-    stack_data.evPresentCurrentDis = 0.0;
+    stack_data.energy_transfer_dir = 0;
+    stack_data.present_soc = 0;
+    stack_data.ev_present_voltage_dis = 0.0;
+    stack_data.ev_present_current_dis = 0.0;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;
@@ -226,10 +226,10 @@ private:
       stack_data.chg_cost = stack_data.energy_delivered * cloud_data.tariff_cost;
       //RCLCPP_INFO(this->get_logger(), "Publishing ChargeCost: '%.2f'", stack_data.chg_cost);
       
-      stxV2GApplExt_EVSEGetEnergyTransferDir(&stack_data.energyTransferDir, &result);
-      stxV2GApplExt_EVSEGetPresentSOC(&stack_data.presentSOC, &result);
-      stxV2GApplExt_EVSEGetEvPresentVoltageDis(&stack_data.evPresentVoltageDis, &result);
-      stxV2GApplExt_EVSEGetEvPresentCurrentDis(&stack_data.evPresentCurrentDis, &result);
+      stxV2GApplExt_EVSEGetEnergyTransferDir(&stack_data.energy_transfer_dir, &result);
+      stxV2GApplExt_EVSEGetPresentSOC(&stack_data.present_soc, &result);
+      stxV2GApplExt_EVSEGetEvPresentVoltageDis(&stack_data.ev_present_voltage_dis, &result);
+      stxV2GApplExt_EVSEGetEvPresentCurrentDis(&stack_data.ev_present_current_dis, &result);
 
       stack_data_publisher_->publish(stack_data);
     }
