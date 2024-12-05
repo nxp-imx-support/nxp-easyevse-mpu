@@ -9,3 +9,7 @@ string      chg_state
 float64     energy_delivered
 string      protocol
 bool        charging
+int16       energyTransferDir
+int16       presentSOC
+float64     evPresentVoltageDis
+float64     evPresentCurrentDis

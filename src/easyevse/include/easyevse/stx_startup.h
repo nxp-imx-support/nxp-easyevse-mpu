@@ -39,5 +39,9 @@ void stxV2GApplExt_EVSEGetAuthenticationStatus(bool * bAuthStatus, bool * result
 void stxV2GApplExt_EVSEGetElapsedTime(uint64_t * ullElapsedTime, bool * result);
 void stxV2GApplExt_EVSEGetRemainingTime(int64_t * ullElapsedTime, bool * result);
 void stxV2GApplExt_EVSEGetCommunicationLevel(bool * bCommsLevel, bool * result);
+void stxV2GApplExt_EVSEGetEnergyTransferDir(uint8_t * EnergyTransferDir, bool * result);
+void stxV2GApplExt_EVSEGetPresentSOC(uint8_t * PresentSOC, bool * result);
+void stxV2GApplExt_EVSEGetEvPresentVoltageDis(double * EvPresentVoltageDis, bool * result);
+void stxV2GApplExt_EVSEGetEvPresentCurrentDis(double * EvPresentCurrentDis, bool * result);
 
 #endif /* _STX_STARTUP_H */

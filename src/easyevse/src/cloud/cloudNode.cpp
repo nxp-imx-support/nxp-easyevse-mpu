@@ -71,6 +71,10 @@ public:
     stack_data.energy_delivered = 0.0;
     stack_data.protocol = "none";
     stack_data.charging = false;
+    stack_data.energyTransferDir = APPL_V2G_AC_BPT_CHARGING;
+    stack_data.presentSOC = 0;
+    stack_data.evPresentVoltageDis = 0.0;
+    stack_data.evPresentCurrentDis = 0.0;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;

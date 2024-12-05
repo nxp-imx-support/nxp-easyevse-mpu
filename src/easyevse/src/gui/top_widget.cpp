@@ -7,6 +7,7 @@
 #include "top_widget.h"
 #include <QGridLayout>
 
+#define DEBUG 0
 static QString charging = ">   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   >   ";
 static QString discharging = "<   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   <   ";
 static QString tmp;
@@ -155,10 +156,10 @@ void top_widget::onTimeout()
                                   "}");
         energy_mode.setText("");
     }
-
+#if DEBUG
     text_debug.setText(energy_mode_flag + " count: " + QString::number(count));
     pb.setValue(count % 100);
-
+#endif
     if(energy_mode_flag != energy_mode_flag_old)
     {
         energy_mode_flag_old = energy_mode_flag;
@@ -226,7 +227,9 @@ void top_widget::setup_widget_main()
     layout_main_v.addStretch(2);
     layout_main_v.addLayout(&layout_main_bottom, 3);layout_main_bottom.setAlignment(Qt::AlignBottom);
     layout_main_v.addStretch(1);
+#if DEBUG
     layout_main_v.addWidget(&text_debug);
+#endif
     layout_main_v.addWidget(&text_license);
 
     layout_main_menu.addWidget(&Card_UID_icon); layout_main_menu.addWidget(&lineEdit_Card_UID);
@@ -393,7 +396,8 @@ void top_widget::resizeEvent(QResizeEvent *event)
     pb.setFixedWidth(ev_icon.width() * 0.8);
     font_content.setPixelSize(f_w * 15);
     text_license.setFont(font_content);
-
+#if DEBUG
     text_debug.setFont(font_content);
+#endif
 
 }
