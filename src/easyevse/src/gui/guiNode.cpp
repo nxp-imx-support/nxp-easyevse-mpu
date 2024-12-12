@@ -116,9 +116,9 @@ private:
     general_data.evse_id = msg->evse_id;
     general_data.evse_rating = msg->evse_rating;
 
-    w->top_widget_inst.lineEdit_Power_Rate.setText(QString("%2").arg(msg->evse_rating));
-    w->top_widget_inst.lineEdit_EVSE_ID.setText(QString("%2").arg((msg->evse_id).c_str()));
-    w->top_widget_inst.lineEdit_Temperature.setText(QString("%2").arg(msg->temperature));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Power_Rate, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->evse_rating)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_EVSE_ID, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->evse_id.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Temperature, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->temperature)));
   }
 
   void stack_data_callback(const interfaces::msg::StackData::SharedPtr msg)
@@ -135,16 +135,16 @@ private:
     stack_data.protocol = msg->protocol;
     stack_data.charging = msg->charging;
 
-    w->top_widget_inst.lineEdit_Vehicle_ID.setText(QString("%2").arg((msg->evcc_id).c_str()));
-    w->top_widget_inst.lineEdit_Auth_State.setText(QString("%2").arg((msg->vehicle_auth).c_str()));
-    w->top_widget_inst.lineEdit_Requested_Energy.setText(QString("%2").arg((msg->energy_requested/1000.0)));
-    w->top_widget_inst.lineEdit_Charge_Current.setText(QString("%2").arg((msg->chg_rate)));
-    w->top_widget_inst.lineEdit_Charge_Cost.setText(QString("%2").arg(msg->chg_cost));
-    w->top_widget_inst.lineEdit_Elapsed_Time.setText(QString("%2").arg((msg->chg_elapsed_time).c_str()));
-    w->top_widget_inst.lineEdit_Remaining_Time.setText(QString("%2").arg((msg->chg_remaining_time).c_str()));
-    w->top_widget_inst.lineEdit_Mode.setText(QString("%2").arg((msg->chg_state).c_str()));
-    w->top_widget_inst.lineEdit_Delivered_Energy.setText(QString("%2").arg((msg->energy_delivered/1000.0)));
-    w->top_widget_inst.lineEdit_Protocol.setText(QString("%2").arg((msg->protocol).c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Vehicle_ID, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->evcc_id.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Auth_State, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->vehicle_auth.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Requested_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_requested/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Charge_Current, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->chg_rate)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Charge_Cost, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->chg_cost)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Elapsed_Time, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_elapsed_time.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Remaining_Time, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_remaining_time.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Mode, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_state.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Delivered_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Protocol, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->protocol.c_str()));
     if(msg->charging) {
 	if(msg->energy_transfer_dir == 0)
             w->top_widget_inst.energy_mode_flag = "charging";
@@ -156,10 +156,10 @@ private:
         w->top_widget_inst.energy_mode_flag = "unknown";
     }
 
-    //w->top_widget_inst.pb.setValue(msg->present_soc % 100);
-    w->top_widget_inst.lineEdit_DisChg_V.setText(QString("%2").arg((msg->ev_present_voltage_dis)));
-    w->top_widget_inst.lineEdit_DisChg_I.setText(QString("%2").arg((msg->ev_present_current_dis)));
-    //w->UpdateBattery((msg->chg_state).c_str());
+    QMetaObject::invokeMethod(&w->top_widget_inst.pb, "setValue", Qt::QueuedConnection, Q_ARG(int, msg->present_soc));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_V, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_voltage_dis)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_I, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_current_dis)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Transferred, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered/1000.0)));
   }
 
   void meter_data_callback(const interfaces::msg::MeterData::SharedPtr msg)
@@ -168,22 +168,21 @@ private:
     meter_data.voltage = msg->voltage;
     meter_data.power = msg->power;
 
-    w->top_widget_inst.lineEdit_VARh.setText(QString("%2").arg(0));
-    w->top_widget_inst.lineEdit_Reactive.setText(QString("%2").arg(0));
-    w->top_widget_inst.lineEdit_Active.setText(QString("%2").arg(msg->power/1000.0));
-    w->top_widget_inst.lineEdit_Apparent.setText(QString("%2").arg(msg->power/1000.0));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_VARh, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Reactive, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Active, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->power/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Apparent, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->power/1000.0)));
 
-    w->top_widget_inst.lineEdit_I_RMS.setText(QString("%2").arg(msg->current));
-    w->top_widget_inst.lineEdit_V_RMS.setText(QString("%2").arg(msg->voltage));
-    w->top_widget_inst.lineEdit_KW.setText(QString("%2").arg(msg->power/1000.0));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_I_RMS, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->current)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_V_RMS, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->voltage)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_KW, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->power/1000.0)));
   }
 
   void nfc_data_callback(const interfaces::msg::NfcData::SharedPtr msg)
   {
     nfc_data.nfc_id = msg->nfc_id;
 
-    //RCLCPP_INFO(this->get_logger(), "NFC ID: '%s'", msg->nfc_id.c_str());
-    w->top_widget_inst.lineEdit_Card_UID.setText(QString("%2").arg(msg->nfc_id.c_str()));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Card_UID, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->nfc_id.c_str()));
   }
 
   void cloud_data_callback(const interfaces::msg::CloudData::SharedPtr msg)
@@ -193,7 +192,7 @@ private:
     cloud_data.tariff_rate = msg->tariff_rate;
     cloud_data.grid_stop_req = msg->grid_stop_req;
 
-    w->top_widget_inst.lineEdit_Grid_Limit.setText(QString("%2").arg(msg->grid_pwr_lim));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Grid_Limit, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->grid_pwr_lim)));
   }
 
   interfaces::msg::CloudData cloud_data;
