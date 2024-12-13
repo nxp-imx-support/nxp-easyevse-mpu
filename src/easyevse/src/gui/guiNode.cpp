@@ -35,6 +35,8 @@ public:
   : Node("gui_node")
   {
     publisher_ = this->create_publisher<interfaces::msg::GuiData>("gui_data", 10);
+    timer_ = this->create_wall_timer(
+      1000ms, std::bind(&GUINode::timer_callback, this));
 
     cloud_data_subscription_ = this->create_subscription<interfaces::msg::CloudData>(
       "cloud_data", 10, std::bind(&GUINode::cloud_data_callback, this, _1));
@@ -55,6 +57,10 @@ public:
   void init_gui_data()
   {
     gui_data.user_stop_req = false;
+    gui_data.user_force_req = false;
+    gui_data.user_force_pwr = 0;
+    gui_data.user_force_cost = 0;
+    gui_data.user_force_rate = 0;
     
     cloud_data.grid_pwr_lim = 32.0;
     cloud_data.tariff_cost = 0.0;
@@ -106,6 +112,29 @@ public:
   std::chrono::time_point<std::chrono::steady_clock> last;
 
 private:
+  void timer_callback()
+  {
+    if(gui_data.user_force_req != w->top_widget_inst.forced_grid_pwr_limit)
+    {
+      if(w->top_widget_inst.forced_grid_pwr_limit)
+      {
+        gui_data.user_force_req = true;
+        gui_data.user_force_pwr = 9;
+        gui_data.user_force_cost = 3;
+        gui_data.user_force_rate = 4;
+      }
+      else
+      {
+        gui_data.user_force_req = false;
+        gui_data.user_force_pwr = 0;
+        gui_data.user_force_cost = 0;
+        gui_data.user_force_rate = 0;
+      }
+      publisher_->publish(gui_data);
+      QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Grid_Limit, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(gui_data.user_force_pwr)));
+    }
+  }
+
   void general_data_callback(const interfaces::msg::GeneralData::SharedPtr msg)
   {
     general_data.fw_vers = msg->fw_vers;
@@ -186,7 +215,10 @@ private:
   }
 
   void cloud_data_callback(const interfaces::msg::CloudData::SharedPtr msg)
-  {
+  { 
+    if(gui_data.user_force_req)
+	    return;
+
     cloud_data.grid_pwr_lim = msg->grid_pwr_lim;
     cloud_data.tariff_cost = msg->tariff_cost;
     cloud_data.tariff_rate = msg->tariff_rate;
@@ -200,6 +232,8 @@ private:
   interfaces::msg::MeterData meter_data;
   interfaces::msg::NfcData nfc_data;
   interfaces::msg::StackData stack_data;
+
+  rclcpp::TimerBase::SharedPtr timer_;
 
   rclcpp::Subscription<interfaces::msg::CloudData>::SharedPtr cloud_data_subscription_;
   rclcpp::Subscription<interfaces::msg::GeneralData>::SharedPtr general_data_subscription_;

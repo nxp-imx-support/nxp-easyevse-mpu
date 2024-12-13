@@ -16,6 +16,7 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QSizePolicy>
+#include <QMessageBox>
 
 class top_widget : public QWidget
 {
@@ -74,6 +75,7 @@ public:
     QLabel energy_mode;
     QString energy_mode_flag;
     QString energy_mode_flag_old;
+    bool forced_grid_pwr_limit;
 
     QLabel label_Auth_State; QLineEdit lineEdit_Auth_State;
     QLabel label_Power_Rate; QLineEdit lineEdit_Power_Rate;
@@ -114,6 +116,7 @@ public:
   public slots:
     void onTimeout();
     void on_PushButton_Mode_Switch_clicked();
+    void on_PushButton_Cloud_Icon_clicked();
 
   protected:
     void resizeEvent(QResizeEvent *event) override;

@@ -19,6 +19,7 @@
 #include "interfaces/msg/stack_data.hpp"
 #include "interfaces/msg/meter_data.hpp"
 #include "interfaces/msg/nfc_data.hpp"
+#include "interfaces/msg/gui_data.hpp"
 extern "C" {
   #include "easyevse/stx_startup.h"
 }
@@ -51,10 +52,19 @@ public:
     nfc_data_subscription_ = this->create_subscription<interfaces::msg::NfcData>(
       "nfc_data", 10, std::bind(&SevenstaxNode::nfc_data_callback, this, _1));
     
+    gui_data_subscription_ = this->create_subscription<interfaces::msg::GuiData>(
+      "gui_data", 10, std::bind(&SevenstaxNode::gui_data_callback, this, _1));
+
   }
 
   void init_stack_data() 
-  {   
+  {
+    gui_data.user_stop_req = false;
+    gui_data.user_force_req = false;
+    gui_data.user_force_pwr = 0;
+    gui_data.user_force_cost = 0;
+    gui_data.user_force_rate = 0;
+
     cloud_data.grid_pwr_lim = 32.0;
     cloud_data.tariff_cost = 0.0;
     cloud_data.tariff_rate = 0.0;
@@ -97,6 +107,7 @@ private:
   {
     bool result;
 
+    RCLCPP_INFO(this->get_logger(), "setMaxCurrentLimit: general_data.evse_rating=%d,  cloud_data.grid_pwr_lim=%f", general_data.evse_rating, cloud_data.grid_pwr_lim);
     if(general_data.evse_rating >= cloud_data.grid_pwr_lim)
     {
       stxV2GApplExt_EVSESetMaxACCurrentLimit(cloud_data.grid_pwr_lim, &result);
@@ -107,10 +118,30 @@ private:
     } 
   }
   
+  void gui_data_callback(const interfaces::msg::GuiData::SharedPtr msg)
+  {
+    if(gui_data.user_force_req != msg->user_force_req)
+    {
+      gui_data.user_force_req = msg->user_force_req;
+      cloud_data.grid_pwr_lim = msg->user_force_pwr;
+      cloud_data.tariff_cost = msg->user_force_cost;
+      cloud_data.tariff_rate = msg->user_force_rate;
+      if(stack_data.charging)
+      {
+        setMaxCurrentLimit();
+      }
+    }
+  }
+
   void cloud_data_callback(const interfaces::msg::CloudData::SharedPtr msg)
   {
     bool result = false, tempb = false;
     
+    RCLCPP_INFO(this->get_logger(), "%s: %d", __func__, __LINE__);
+    
+    if(gui_data.user_force_req)
+	    return;
+
     if(cloud_data.grid_pwr_lim != msg->grid_pwr_lim)
     {
       cloud_data.grid_pwr_lim = msg->grid_pwr_lim;
@@ -132,6 +163,7 @@ private:
         stxV2GApplExt_EVSEGetCharging(&tempb, &result);
         if(tempb)
         {
+          RCLCPP_INFO(this->get_logger(), "Cloud requesting to stop charging");
           stxV2GApplExt_EVSEStopCharging(&result);
         }
       }    
@@ -276,6 +308,7 @@ private:
   interfaces::msg::MeterData meter_data;
   interfaces::msg::NfcData nfc_data;
   interfaces::msg::StackData stack_data;
+  interfaces::msg::GuiData gui_data;
 
   rclcpp::TimerBase::SharedPtr mtimer_, timer_ ;
 
@@ -285,6 +318,7 @@ private:
   rclcpp::Subscription<interfaces::msg::GeneralData>::SharedPtr general_data_subscription_;
   rclcpp::Subscription<interfaces::msg::MeterData>::SharedPtr meter_data_subscription_;
   rclcpp::Subscription<interfaces::msg::NfcData>::SharedPtr nfc_data_subscription_;
+  rclcpp::Subscription<interfaces::msg::GuiData>::SharedPtr gui_data_subscription_;
 };
 
 std::shared_ptr<SevenstaxNode> node;

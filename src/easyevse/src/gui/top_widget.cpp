@@ -20,6 +20,7 @@ top_widget::top_widget(QWidget *parent)
     tmp.reserve(256);
     count = 0;
     energy_mode_flag = "unknown";
+    forced_grid_pwr_limit = false;
 
     label_Charge_State.setText("Charge Sate");
     label_Power_Rate.setText("EVSE Rate");
@@ -84,6 +85,7 @@ top_widget::top_widget(QWidget *parent)
     timer.start(300);
 
     connect(&mode_switch, &QPushButton::clicked, this, &top_widget::on_PushButton_Mode_Switch_clicked);
+    connect(&cloud_icon, &QPushButton::clicked, this, &top_widget::on_PushButton_Cloud_Icon_clicked);
 }
 
 void top_widget::on_PushButton_Mode_Switch_clicked(){
@@ -105,6 +107,23 @@ void top_widget::on_PushButton_Mode_Switch_clicked(){
                                   "       color: #bfb;"
                                   "}");
     }
+
+}
+
+void top_widget::on_PushButton_Cloud_Icon_clicked(){
+    QMessageBox messageBox;
+    messageBox.setWindowTitle("Selection");
+    messageBox.setText("Please confirm the action to configure Grid Power Limit without CLOUD.");
+    messageBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+    messageBox.setDefaultButton(QMessageBox::No);
+
+    int ret = messageBox.exec();
+    if (ret == QMessageBox::Yes)
+        forced_grid_pwr_limit = true;
+    else if(ret == QMessageBox::No)
+        forced_grid_pwr_limit = false;
+    else
+	forced_grid_pwr_limit = forced_grid_pwr_limit;
 
 }
 
