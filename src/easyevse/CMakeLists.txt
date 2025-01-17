@@ -46,6 +46,7 @@ add_executable(GUI src/gui/guiNode.cpp src/gui/mainwindow.cpp src/gui/resources.
 add_executable(CLOUD src/cloud/cloudNode.cpp src/cloud/cloud_api.c src/common/utils.c ../../azure-iot-sdk-c/certs/certs.c src/common/logger.c src/cloud/snw_sss.cpp)
 add_executable(BUSINESS_LOGIC src/business_logic/businessLogicNode.cpp)
 add_executable(SEVENSTAX src/sevenstax/sevenstaxNode.cpp)
+add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
 
 target_compile_definitions(CLOUD PRIVATE 
   -DSET_TRUSTED_CERT_IN_SAMPLES
@@ -90,6 +91,7 @@ install(TARGETS
   CLOUD
   BUSINESS_LOGIC
   SEVENSTAX
+  EVSE_CONTROL
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

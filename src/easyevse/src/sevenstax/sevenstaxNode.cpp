@@ -1,6 +1,6 @@
 /*
  * Copyright 2016 Open Source Robotics Foundation, Inc.
- * Copyright 2024 NXP
+ * Copyright 2025 NXP
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -21,6 +21,17 @@
 #include "interfaces/msg/nfc_data.hpp"
 #include "interfaces/msg/gui_data.hpp"
 extern "C" {
+  #include <stdio.h>
+  #include <stdbool.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <sys/types.h>
+  #include <fcntl.h>
+  #include <errno.h>
+  #include <time.h>
+  #include <pthread.h>
+  #include <signal.h>
+  #include <mqueue.h>
   #include "easyevse/stx_startup.h"
 }
 
@@ -28,6 +39,67 @@ using namespace std::chrono_literals;
 using namespace std;
 
 using std::placeholders::_1;
+
+typedef enum TAG_V2G_STATE
+{
+  PAUSE,
+  STOP
+} V2G_STATE;
+
+const char* states[] = {"PAUSE", "STOP"};
+static void msg_notify_setup(mqd_t *mqdp);
+
+static void notify_thread_func(union sigval sv)
+{
+    ssize_t num;
+    mqd_t *mqdp;
+    void *rev_buf;
+    struct mq_attr attr;
+    mqdp = sv.sival_ptr;
+    bool result = true;
+
+    if (mq_getattr(*mqdp, &attr) == -1)
+        printf("mq_getattr err\n");
+
+    rev_buf = malloc(attr.mq_msgsize);
+    if (rev_buf == NULL)
+        printf("malloc err\n");
+
+    msg_notify_setup(mqdp);
+
+    while ((num = mq_receive(*mqdp, (char *)rev_buf, attr.mq_msgsize, NULL)) >=0 )
+    {
+    }
+
+    if (strcmp(rev_buf, states[0]) == 0)
+    {
+        stxV2GApplExt_EVSESetChargingSessionPause(&result);
+        if (!result)
+        {
+            printf("Pause request is invalid\n");
+        }
+    }
+    else if (strcmp(rev_buf, states[1]) == 0)
+    {
+        stxV2GApplExt_EVSEStopCharging(&result);
+        rclcpp::shutdown();
+    }
+
+    free(rev_buf);
+    pthread_exit(NULL);
+}
+
+static void msg_notify_setup(mqd_t *mqdp)
+{
+    struct sigevent sig_ev;
+    sig_ev.sigev_notify = SIGEV_THREAD;
+    sig_ev.sigev_notify_function = notify_thread_func;
+    sig_ev.sigev_notify_attributes = NULL;
+    sig_ev.sigev_value.sival_ptr = mqdp;
+
+    if (mq_notify(*mqdp, &sig_ev) == -1)
+        printf("mq_notify err\n");
+}
 
 class SevenstaxNode : public rclcpp::Node
 {
@@ -325,6 +397,10 @@ std::shared_ptr<SevenstaxNode> node;
 
 int main(int argc, char * argv[])
 {
+  char name[] = "/stx_mqd";
+  mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK, 0666, NULL);
+  msg_notify_setup(&mqd);
+
   rclcpp::init(argc, argv);
 
   node = std::make_shared<SevenstaxNode>();

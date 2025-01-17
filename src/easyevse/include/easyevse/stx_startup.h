@@ -6,7 +6,8 @@
 
 #ifndef _STX_STARTUP_H
 #define _STX_STARTUP_H
-
+#include <stdbool.h>
+#include <stdint.h>
 #if ((defined(__cplusplus)) && (!defined(CPP_NAMESPACE_WRAPPED)))
 extern "C" {
 #endif
@@ -43,5 +44,7 @@ void stxV2GApplExt_EVSEGetEnergyTransferDir(uint8_t * EnergyTransferDir, bool * 
 void stxV2GApplExt_EVSEGetPresentSOC(uint8_t * PresentSOC, bool * result);
 void stxV2GApplExt_EVSEGetEvPresentVoltageDis(double * EvPresentVoltageDis, bool * result);
 void stxV2GApplExt_EVSEGetEvPresentCurrentDis(double * EvPresentCurrentDis, bool * result);
+void stxV2GApplExt_EVSESetChargingSessionPause(bool * result);
+void stxV2GApplExt_EVSEGetChargingSessionPause(bool * EvsePause, bool * result);
 
 #endif /* _STX_STARTUP_H */
