@@ -27,6 +27,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 include(src/sevenstax/feat_options.cmake)
+include(src/sevenstax_pev/feat_options.cmake)
 
 include_directories(include)
 include_directories(.)
@@ -47,6 +48,8 @@ add_executable(CLOUD src/cloud/cloudNode.cpp src/cloud/cloud_api.c src/common/ut
 add_executable(BUSINESS_LOGIC src/business_logic/businessLogicNode.cpp)
 add_executable(SEVENSTAX src/sevenstax/sevenstaxNode.cpp)
 add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
+add_executable(SEVENSTAX_PEV src/sevenstax_pev/sevenstax_pev.c)
+add_executable(PEV_CONTROL src/sevenstax_pev/pev_control.c)
 
 target_compile_definitions(CLOUD PRIVATE 
   -DSET_TRUSTED_CERT_IN_SAMPLES
@@ -78,6 +81,10 @@ target_link_libraries(SEVENSTAX
   stx_v2g_evse_pnc_cg5317_eth
   gpiod
 )
+target_link_libraries(SEVENSTAX_PEV
+  stx_v2g_pev_pnc_cg5317_eth
+  gpiod
+)
 
 ament_target_dependencies(NFC rclcpp std_msgs interfaces)
 ament_target_dependencies(GUI rclcpp std_msgs Qt6Widgets interfaces)
@@ -92,6 +99,8 @@ install(TARGETS
   BUSINESS_LOGIC
   SEVENSTAX
   EVSE_CONTROL
+  SEVENSTAX_PEV
+  PEV_CONTROL
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
