@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2023-2024 NXP
+# Copyright 2024-2025 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -26,13 +26,24 @@ function handle_ctrlc()
 # trapping the SIGINT signal
 trap handle_ctrlc SIGINT
 
+# identify EVSE or PEV
+/usr/lib/easyevse/IDENT
+#ret = $?
+if [ $? -eq 1 ]; then
+	/usr/lib/easyevse/PEV_CONTROL
+	exit 0
+elif [ $? -eq 2 ]; then
+	echo "NO EVSE and PEV be identified"
+	exit 1
+fi
+
 if [ $# -eq 0 ]; then
 	echo
 	echo "ERROR: No argument provided"
-	echo "Valid arguments are: NFC, GUI, BUSINESS_LOGIC, SEVENSTAX, CLOUD, all"
+	echo "Valid arguments are: BUSINESS_LOGIC, GUI, NFC, SEVENSTAX, CLOUD, all"
 	echo
 	echo "To start all clients:"
-    echo "./easyevse-startup.sh all"
+	echo "./easyevse-startup.sh all"
 	echo
 	echo "To start only the NFC and the GUI clients:"
 	echo "./easyevse-startup.sh NFC GUI"
@@ -44,8 +55,12 @@ if [ $# -eq 1 ] && [ $1 == "all" ]; then
 	# Start all clients
 	for client in "${clients[@]}"; do
 		echo "Starting $client..."
-		ros2 run easyevse $client &
+		if [ "$client" == "SEVENSTAX" ]; then
+			/usr/lib/easyevse/EVSE_CONTROL
+		else
+			ros2 run easyevse $client &
 		sleep 1
+		fi
 	done
 else
 	# Start only the specified clients
@@ -54,7 +69,7 @@ else
 		if [[ ! " ${clients[@]} " =~ " $arg " ]]; then
 			echo
 			echo "ERROR: Invalid argument $arg"
-			echo "Valid arguments are: NFC, METER, GUI, CLOUD, BUSINESS_LOGIC"
+			echo "Valid arguments are: BUSINESS_LOGIC, GUI, NFC, SEVENSTAX, CLOUD"
 			echo
 			exit
 		fi
@@ -72,8 +87,12 @@ else
 	# Start the specified clients
 	for arg in ${ordered_args[@]}; do
 		echo "Starting $arg..."
-		ros2 run easyevse $arg &
+		if [ "$arg" == "SEVENSTAX" ]; then
+			/usr/lib/easyevse/EVSE_CONTROL
+		else
+			ros2 run easyevse $arg &
 		sleep 1
+		fi
 	done
 fi
 

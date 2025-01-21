@@ -50,6 +50,7 @@ add_executable(SEVENSTAX src/sevenstax/sevenstaxNode.cpp)
 add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
 add_executable(SEVENSTAX_PEV src/sevenstax_pev/sevenstax_pev.c)
 add_executable(PEV_CONTROL src/sevenstax_pev/pev_control.c)
+add_executable(IDENT src/ident/identify_evse.c)
 
 target_compile_definitions(CLOUD PRIVATE 
   -DSET_TRUSTED_CERT_IN_SAMPLES
@@ -101,6 +102,7 @@ install(TARGETS
   EVSE_CONTROL
   SEVENSTAX_PEV
   PEV_CONTROL
+  IDENT
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
