@@ -133,6 +133,7 @@ public:
   {
     gui_data.user_stop_req = false;
     gui_data.user_force_req = false;
+    gui_data.user_pause_req = false;
     gui_data.user_force_pwr = 0;
     gui_data.user_force_cost = 0;
     gui_data.user_force_rate = 0;
@@ -165,6 +166,7 @@ public:
     stack_data.present_soc = 0;
     stack_data.ev_present_voltage_dis = 0.0;
     stack_data.ev_present_current_dis = 0.0;
+    stack_data.is_pausing = false;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;
@@ -192,6 +194,8 @@ private:
   
   void gui_data_callback(const interfaces::msg::GuiData::SharedPtr msg)
   {
+    bool result;
+
     if(gui_data.user_force_req != msg->user_force_req)
     {
       gui_data.user_force_req = msg->user_force_req;
@@ -202,6 +206,13 @@ private:
       {
         setMaxCurrentLimit();
       }
+    }
+
+    if((gui_data.user_pause_req != msg->user_pause_req))
+    {
+      gui_data.user_pause_req = msg->user_pause_req;
+      if(gui_data.user_pause_req)
+        stxV2GApplExt_EVSESetChargingSessionPause(&result);
     }
   }
 
@@ -334,6 +345,7 @@ private:
       stxV2GApplExt_EVSEGetPresentSOC(&stack_data.present_soc, &result);
       stxV2GApplExt_EVSEGetEvPresentVoltageDis(&stack_data.ev_present_voltage_dis, &result);
       stxV2GApplExt_EVSEGetEvPresentCurrentDis(&stack_data.ev_present_current_dis, &result);
+      stxV2GApplExt_EVSEGetChargingSessionPause(&stack_data.is_pausing, &result);
 
       stack_data_publisher_->publish(stack_data);
     }

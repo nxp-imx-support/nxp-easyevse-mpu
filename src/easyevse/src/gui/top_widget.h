@@ -76,6 +76,7 @@ public:
     QString energy_mode_flag;
     QString energy_mode_flag_old;
     bool forced_grid_pwr_limit;
+    bool isPausing, reqPause;
 
     QLabel label_Auth_State; QLineEdit lineEdit_Auth_State;
     QLabel label_Power_Rate; QLineEdit lineEdit_Power_Rate;
@@ -117,6 +118,7 @@ public:
     void onTimeout();
     void on_PushButton_Mode_Switch_clicked();
     void on_PushButton_Cloud_Icon_clicked();
+    void on_PushButton_Pause_Resume_clicked();
 
   protected:
     void resizeEvent(QResizeEvent *event) override;

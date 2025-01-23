@@ -58,6 +58,7 @@ public:
   {
     gui_data.user_stop_req = false;
     gui_data.user_force_req = false;
+    gui_data.user_pause_req = false;
     gui_data.user_force_pwr = 0;
     gui_data.user_force_cost = 0;
     gui_data.user_force_rate = 0;
@@ -90,6 +91,7 @@ public:
     stack_data.present_soc = 0;
     stack_data.ev_present_voltage_dis = 0.0;
     stack_data.ev_present_current_dis = 0.0;
+    stack_data.is_pausing = false;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;
@@ -133,6 +135,25 @@ private:
       publisher_->publish(gui_data);
       QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Grid_Limit, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(gui_data.user_force_pwr)));
     }
+
+    if(w->top_widget_inst.isPausing)
+    {
+      w->top_widget_inst.btn_pause_resume.setText("PAUSED");
+      QMetaObject::invokeMethod(&w->top_widget_inst.timer, "stop", Qt::QueuedConnection, QGenericArgument());
+      gui_data.user_pause_req = false;
+      publisher_->publish(gui_data);
+    }
+    else
+    {
+      w->top_widget_inst.btn_pause_resume.setText("PAUSE");
+      QMetaObject::invokeMethod(&w->top_widget_inst.timer, "start", Qt::QueuedConnection, 300);
+      if(w->top_widget_inst.reqPause)
+      {
+        gui_data.user_pause_req = true;
+        w->top_widget_inst.reqPause = false;
+        publisher_->publish(gui_data);
+      }
+    }
   }
 
   void general_data_callback(const interfaces::msg::GeneralData::SharedPtr msg)
@@ -163,6 +184,7 @@ private:
     stack_data.energy_delivered = msg->energy_delivered;
     stack_data.protocol = msg->protocol;
     stack_data.charging = msg->charging;
+    stack_data.is_pausing = msg->is_pausing;
 
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Vehicle_ID, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->evcc_id.c_str()));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Auth_State, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->vehicle_auth.c_str()));
@@ -189,6 +211,8 @@ private:
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_V, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_voltage_dis)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_I, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_current_dis)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Transferred, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered/1000.0)));
+
+    w->top_widget_inst.isPausing = stack_data.is_pausing;
   }
 
   void meter_data_callback(const interfaces::msg::MeterData::SharedPtr msg)

@@ -21,6 +21,8 @@ top_widget::top_widget(QWidget *parent)
     count = 0;
     energy_mode_flag = "unknown";
     forced_grid_pwr_limit = false;
+    isPausing = false;
+    reqPause = false;
 
     label_Charge_State.setText("Charge Sate");
     label_Power_Rate.setText("EVSE Rate");
@@ -86,6 +88,7 @@ top_widget::top_widget(QWidget *parent)
 
     connect(&mode_switch, &QPushButton::clicked, this, &top_widget::on_PushButton_Mode_Switch_clicked);
     connect(&cloud_icon, &QPushButton::clicked, this, &top_widget::on_PushButton_Cloud_Icon_clicked);
+    connect(&btn_pause_resume, &QPushButton::clicked, this, &top_widget::on_PushButton_Pause_Resume_clicked);
 }
 
 void top_widget::on_PushButton_Mode_Switch_clicked(){
@@ -125,6 +128,12 @@ void top_widget::on_PushButton_Cloud_Icon_clicked(){
     else
 	forced_grid_pwr_limit = forced_grid_pwr_limit;
 
+}
+
+void top_widget::on_PushButton_Pause_Resume_clicked(){
+    if(!isPausing){
+        reqPause = true;
+    }
 }
 
 void top_widget::onTimeout()

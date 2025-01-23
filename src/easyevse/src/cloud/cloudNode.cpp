@@ -75,6 +75,7 @@ public:
     stack_data.present_soc = 0;
     stack_data.ev_present_voltage_dis = 0.0;
     stack_data.ev_present_current_dis = 0.0;
+    stack_data.is_pausing = false;
 
     meter_data.current = 1.1;
     meter_data.voltage = 2.2;

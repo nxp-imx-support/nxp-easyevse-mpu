@@ -13,3 +13,4 @@ uint8        energy_transfer_dir
 uint8        present_soc
 float64     ev_present_voltage_dis
 float64     ev_present_current_dis
+bool        is_pausing
