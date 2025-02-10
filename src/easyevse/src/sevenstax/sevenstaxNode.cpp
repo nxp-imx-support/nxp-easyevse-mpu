@@ -46,7 +46,8 @@ typedef enum TAG_V2G_STATE
   STOP
 } V2G_STATE;
 
-const char* states[] = {"PAUSE", "STOP"};
+const char* const states[] = {"PAUSE", "STOP"};
+const char name[] = "/stx_mqd";
 static void msg_notify_setup(mqd_t *mqdp);
 
 static void notify_thread_func(union sigval sv)
@@ -59,11 +60,14 @@ static void notify_thread_func(union sigval sv)
     bool result = true;
 
     if (mq_getattr(*mqdp, &attr) == -1)
-        printf("mq_getattr err\n");
-
+    {
+        printf("mq_getattr: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
     rev_buf = malloc(attr.mq_msgsize);
     if (rev_buf == NULL)
-        printf("malloc err\n");
+    {
+        printf("malloc: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     msg_notify_setup(mqdp);
 
@@ -98,7 +102,9 @@ static void msg_notify_setup(mqd_t *mqdp)
     sig_ev.sigev_value.sival_ptr = mqdp;
 
     if (mq_notify(*mqdp, &sig_ev) == -1)
-        printf("mq_notify err\n");
+    {
+        printf("mq_notify: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 }
 
 class SevenstaxNode : public rclcpp::Node
@@ -409,8 +415,11 @@ std::shared_ptr<SevenstaxNode> node;
 
 int main(int argc, char * argv[])
 {
-  char name[] = "/stx_mqd";
-  mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK, 0666, NULL);
+  mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK);
+  if (mqd == (mqd_t)-1)
+  {
+    printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
+  }
   msg_notify_setup(&mqd);
 
   rclcpp::init(argc, argv);

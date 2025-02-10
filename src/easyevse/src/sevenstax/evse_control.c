@@ -28,8 +28,10 @@ typedef enum TAG_V2G_STATE
 } V2G_STATE;
 
 pid_t evse_stx_pid;
-const char* evse_charging_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX", NULL};
-const char* states[] = {"PAUSE", "STOP"};
+const char* const evse_charging_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX", NULL};
+const char* const states[] = {"PAUSE", "STOP"};
+const char event[] = "/dev/input/event1";
+const char name[] = "/stx_mqd";
 static unsigned long send_time = 0;
 
 void sig_handler(int sig)
@@ -50,28 +52,38 @@ int main(int argc, char * argv[])
 
     unsigned int msg_prio = 0;
     ssize_t msg_len = 8;
-    char name[] = "/stx_mqd";
     mqd_t mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
+    if (mqd == (mqd_t)-1)
+    {
+        printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     signal(SIGINT, sig_handler);
 
-    key_fd = open ("/dev/input/event1", O_RDONLY | O_NONBLOCK);
+    key_fd = open (event, O_RDONLY | O_NONBLOCK);
     if (key_fd <= 0)
     {
-        printf ("open /dev/input/event1 device error!\n");
+        printf ("open %s device error!\n", event);
         return 0;
     }
 
     pid_t pid_1 = vfork();
     if (pid_1 < 0)
     {
-        printf("evse_stx_pid fork failed\n");
+        printf("vfork: errno=%d, desc=%s \n", errno, strerror(errno));
     }
     else if (pid_1 == 0)
     {
-        execvp(evse_charging_argument_list[0], evse_charging_argument_list);
-        sleep(2);
-        system("ros2 run easyevse SEVENSTAX");
+        ret = execvp(evse_charging_argument_list[0], evse_charging_argument_list);
+        if (ret == 0)
+        {
+            sleep(2);
+            system("ros2 run easyevse SEVENSTAX");
+        }
+        else
+        {
+            printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
+        }
     }
     else
     {
@@ -87,10 +99,10 @@ int main(int argc, char * argv[])
         switch(ret)
         {
         case -1:
-            printf("select failed\n");
+            perror("select failed\n");
             break;
         case 0:
-            printf("select timeout\n");
+            perror("select timeout\n");
             break;
         default:
             if (FD_ISSET(key_fd, &readfds))
@@ -119,7 +131,7 @@ int main(int argc, char * argv[])
                     {
                         if (mq_send(mqd, states[1], msg_len, msg_prio) == -1)
                         {
-                            printf("errno=%d, desc=%s \n", errno, strerror(errno));
+                            printf("mq_send: errno=%d, desc=%s \n", errno, strerror(errno));
                         }
                         else
                         {
@@ -137,9 +149,16 @@ int main(int argc, char * argv[])
                     }
                     else if (pid_2 == 0)
                     {
-                        execvp(evse_charging_argument_list[0], evse_charging_argument_list);
-                        sleep(2);
-                        system("ros2 run easyevse SEVENSTAX");
+                        ret = execvp(evse_charging_argument_list[0], evse_charging_argument_list);
+                        if (ret == 0)
+                        {
+                            sleep(2);
+                            system("ros2 run easyevse SEVENSTAX");
+                        }
+                        else
+                        {
+                            printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
+                        }
                     }
                     else
                     {
@@ -158,7 +177,7 @@ int main(int argc, char * argv[])
                     {
                         if (mq_send(mqd, states[0], msg_len, msg_prio) == -1)
                         {
-                            printf("errno=%d, desc=%s \n", errno, strerror(errno));
+                            printf("mq_send: errno=%d, desc=%s \n", errno, strerror(errno));
                         }
                         else
                         {

@@ -2,7 +2,6 @@
  *
  *
  * Copyright 2025 NXP
- * All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -54,14 +53,13 @@ static void Init_SigBrd_Uart(void)
 
     if(ubd_fd < 0)
     {
-        perror(UART_BD_DEV);
-        printf("Init_SigBrd_Uart() - Open UART DEV error\n");
+        perror("Init_SigBrd_Uart() - Open UART DEV error\n");
     }
 
     ret = tcgetattr(ubd_fd, &uart_cfg_opt);
     if(ret == -1)
     {
-        printf("Init_SigBrd_Uart() - tcgetattr error\n");
+        perror("Init_SigBrd_Uart() - tcgetattr error\n");
     }
 
     uart_cfg_opt.c_cflag &= ~PARENB;
@@ -87,7 +85,7 @@ static void Init_SigBrd_Uart(void)
     ret = tcsetattr(ubd_fd, TCSANOW, &uart_cfg_opt);
     if(ret == -1)
     {
-        printf("Init_SigBrd_Uart() - tcsetattr error\n");
+        perror("Init_SigBrd_Uart() - tcsetattr error\n");
     }
 }
 
@@ -111,7 +109,7 @@ static ssize_t nblk_write_uart(const char * const buf, size_t size, struct timev
     }
     else if(ret == 0)
     {
-        printf("nblk_write_uart() - write select timeout\n");
+        perror("nblk_write_uart() - write select timeout\n");
     }
     else if(ret > 0)
     {
@@ -144,7 +142,7 @@ static ssize_t nblk_read_uart(void *buf, size_t size, struct timeval *timeout)
     }
     else if(ret == 0)
     {
-        printf("nblk_read_uart() - read select timeout\n");
+        perror("nblk_read_uart() - read select timeout\n");
     }
     else if(ret > 0)
     {
@@ -216,7 +214,7 @@ static int SIGBRD_UARTCommsProcess(char command_code)
     }
     else if(len == 0)
     {
-        printf("SIGBRD_UARTCommsProcess() - empty write or select timeout\n");
+        perror("SIGBRD_UARTCommsProcess() - empty write or select timeout\n");
     }
 
     reply_code = CMD_ERR;
@@ -225,12 +223,12 @@ static int SIGBRD_UARTCommsProcess(char command_code)
         len = nblk_read_uart(messageBuffer, sizeof(messageBuffer), &timeout);
         if(len < 0)
         {
-            printf("Reading data Error\n");
+            perror("Reading data Error\n");
             return CMD_ERR;
         }
         else if(len == 0)
         {
-            printf("SIGBRD_UARTCommsProcess() - empty read or select timeout\n");
+            perror("SIGBRD_UARTCommsProcess() - empty read or select timeout\n");
             return CMD_ERR;
         }
         else

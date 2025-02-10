@@ -27,7 +27,8 @@ typedef enum TAG_V2G_STATE
 } V2G_STATE;
 
 struct sigevent sig_ev;
-const char* states[] = {"PAUSE", "RESUME", "STOP"};
+const char* const states[] = {"PAUSE", "RESUME", "STOP"};
+const char name[] = "/stx_mqd";
 
 static void notify_thread_func(union sigval sv)
 {
@@ -37,14 +38,20 @@ static void notify_thread_func(union sigval sv)
     mqd_t *mqdp = sv.sival_ptr;
     bool result = true, tempb = true;
     if (mq_getattr(*mqdp, &attr) == -1)
-        printf("mq_getattr err\n");
+    {
+        printf("mq_getattr: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     rev_buf = malloc(attr.mq_msgsize + 1);
     if (rev_buf == NULL)
-        printf("malloc err\n");
+    {
+        printf("malloc: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     if (mq_notify(*mqdp, &sig_ev) == -1)
-        printf("mq_notify err1\n");
+    {
+        printf("mq_notify: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     while ((num = mq_receive(*mqdp, rev_buf, attr.mq_msgsize + 1, NULL)) >=0 )
     {
@@ -81,15 +88,19 @@ static void notify_thread_func(union sigval sv)
 
 int main(int argc, char * argv[])
 {
-    char name[] = "/stx_mqd";
-    mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK, 0666, NULL);
+    mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK);
+    if (mqd == (mqd_t)-1)
+    {
+        printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
     sig_ev.sigev_notify = SIGEV_THREAD;
     sig_ev.sigev_notify_function = notify_thread_func;
     sig_ev.sigev_notify_attributes = NULL;
     sig_ev.sigev_value.sival_ptr = &mqd;
 
     if (mq_notify(mqd, &sig_ev) == -1)
-        printf("mq_notify err\n");
-
+    {
+        printf("mq_notify: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
     stx_startup(argc, argv);
 }

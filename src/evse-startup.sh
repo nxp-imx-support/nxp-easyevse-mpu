@@ -26,15 +26,27 @@ function handle_ctrlc()
 # trapping the SIGINT signal
 trap handle_ctrlc SIGINT
 
+declare -i auth_mode
 # identify EVSE or PEV
 /usr/lib/easyevse/IDENT
-#ret = $?
-if [ $? -eq 1 ]; then
-	/usr/lib/easyevse/PEV_CONTROL
-	exit 0
-elif [ $? -eq 2 ]; then
+if [ $? -eq 2 ]; then
 	echo "NO EVSE and PEV be identified"
 	exit 1
+elif [ $? -eq 1 ]; then
+	auth_mode=0
+	for arg in "$@"; do
+		if [ "$arg" == "EIM" ]; then
+			let auth_mode++
+		fi
+	done
+
+	if [ "$auth_mode" -gt 0 ]; then
+		/usr/lib/easyevse/PEV_CONTROL EIM
+	else
+		/usr/lib/easyevse/PEV_CONTROL
+	fi
+
+	exit 0
 fi
 
 if [ $# -eq 0 ]; then

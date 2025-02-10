@@ -48,7 +48,8 @@ add_executable(CLOUD src/cloud/cloudNode.cpp src/cloud/cloud_api.c src/common/ut
 add_executable(BUSINESS_LOGIC src/business_logic/businessLogicNode.cpp)
 add_executable(SEVENSTAX src/sevenstax/sevenstaxNode.cpp)
 add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
-add_executable(SEVENSTAX_PEV src/sevenstax_pev/sevenstax_pev.c)
+add_executable(SEVENSTAX_PEV_PNC src/sevenstax_pev/sevenstax_pev.c)
+add_executable(SEVENSTAX_PEV_EIM src/sevenstax_pev/sevenstax_pev.c)
 add_executable(PEV_CONTROL src/sevenstax_pev/pev_control.c)
 add_executable(IDENT src/ident/identify_evse.c)
 
@@ -82,8 +83,13 @@ target_link_libraries(SEVENSTAX
   stx_v2g_evse_pnc_cg5317_eth
   gpiod
 )
-target_link_libraries(SEVENSTAX_PEV
+target_link_libraries(SEVENSTAX_PEV_PNC
   stx_v2g_pev_pnc_cg5317_eth
+  gpiod
+)
+
+target_link_libraries(SEVENSTAX_PEV_EIM
+  stx_v2g_pev_eim_cg5317_eth
   gpiod
 )
 
@@ -100,7 +106,8 @@ install(TARGETS
   BUSINESS_LOGIC
   SEVENSTAX
   EVSE_CONTROL
-  SEVENSTAX_PEV
+  SEVENSTAX_PEV_PNC
+  SEVENSTAX_PEV_EIM
   PEV_CONTROL
   IDENT
   DESTINATION lib/${PROJECT_NAME})

@@ -29,14 +29,20 @@ typedef enum TAG_ENERGY_TRANSFER_MODE
 
 pid_t pev_stx_pid;
 static TRANSFER_Mode pev_transfer_mode = CHARGING;
-const char* pev_charging_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV", "-t", "c", NULL};
-const char* pev_discharging_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV", "-t", "d", NULL};
-const char* states[] = {"PAUSE", "RESUME", "STOP"};
+const char* const pev_charging_pnc_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV_PNC", "-t", "c", NULL};
+const char* const pev_discharging_pnc_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV_PNC", "-t", "d", NULL};
+const char* const pev_charging_eim_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV_EIM", "-t", "c", NULL};
+const char* const pev_discharging_eim_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX_PEV_EIM", "-t", "d", NULL};
+char* pev_charging_argument_list[] = {NULL, NULL, NULL, NULL};
+char* pev_discharging_argument_list[] = {NULL, NULL, NULL, NULL};
+const char* const states[] = {"PAUSE", "RESUME", "STOP"};
+const char name[] = "/stx_mqd";
+const char event[] = "/dev/input/event1";
 static unsigned long send_time = 0;
 
 void sig_handler(int sig)
 {
-    kill(pev_stx_pid, SIGKILL);
+    kill(pev_stx_pid, SIGTERM);
     wait(NULL);
     exit(1);
 }
@@ -49,30 +55,56 @@ int main(int argc, char * argv[])
     unsigned long count = 0;
     struct timeval tv;
     bool start_count = false, end_count = false;
-
     unsigned int msg_prio = 0;
     ssize_t msg_len = 8;
-    char name[] = "/stx_mqd";
-    mqd_t mqd;
-    mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
+    int i = 0, j = 0;
+
+    if ((argc > 1) && (strcmp(argv[1],"EIM") == 0))
+    {
+        for (i = 0; i < 3; i++)
+        {
+            pev_charging_argument_list[i] = pev_charging_eim_argument_list[i];
+            pev_discharging_argument_list[i] = pev_discharging_eim_argument_list[i];
+        }
+        printf("EV will select External Authorization \n");
+    }
+    else
+    {
+        for (j = 0; j < 3; j++)
+        {
+            pev_charging_argument_list[j] = pev_charging_pnc_argument_list[j];
+            pev_discharging_argument_list[j] = pev_discharging_pnc_argument_list[j];
+        }
+        printf("EV will select PnC Authorization \n");
+    }
+
+    mqd_t mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
+    if (mqd == (mqd_t)-1)
+    {
+        printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
 
     signal(SIGINT, sig_handler);
 
-    key_fd = open ("/dev/input/event1", O_RDONLY | O_NONBLOCK);
+    key_fd = open (event, O_RDONLY | O_NONBLOCK);
     if (key_fd <= 0)
     {
-        printf ("open /dev/input/event1 device error!\n");
+        printf ("open %s device error!\n", event);
         return 0;
     }
 
     pid_t pid_1 = vfork();
     if (pid_1 < 0)
     {
-        printf("pev_stx_pid fork failed\n");
+        printf("vfork: errno=%d, desc=%s \n", errno, strerror(errno));
     }
     else if (pid_1 == 0)
     {
-        execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+        ret = execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+        if (ret == -1)
+        {
+            printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
+        }
     }
     else
     {
@@ -88,10 +120,10 @@ int main(int argc, char * argv[])
         switch(ret)
         {
         case -1:
-            printf("select failed\n");
+            perror("select failed\n");
             break;
         case 0:
-            printf("select timeout\n");
+            perror("select timeout\n");
             break;
         default:
             if (FD_ISSET(key_fd, &readfds))
@@ -120,7 +152,7 @@ int main(int argc, char * argv[])
                     {
                         if (mq_send(mqd, states[2], msg_len, msg_prio) == -1)
                         {
-                            printf("errno=%d, desc=%s \n", errno, strerror(errno));
+                            printf("mq_send: errno=%d, desc=%s \n", errno, strerror(errno));
                         }
                         else
                         {
@@ -128,18 +160,22 @@ int main(int argc, char * argv[])
                         }
                     }
                     sleep(3);
-                    kill(pev_stx_pid, SIGKILL);
+                    kill(pev_stx_pid, SIGTERM);
                     wait(NULL);
                     if (pev_transfer_mode == CHARGING)
                     {
                         pid_t pid_2 = vfork();
                         if (pid_2 < 0)
                         {
-                            printf("\n pev_stx_pid fork failed\n");
+                            printf("vfork: errno=%d, desc=%s \n", errno, strerror(errno));
                         }
                         else if (pid_2 == 0)
                         {
-                            execvp(pev_discharging_argument_list[0], pev_discharging_argument_list);
+                            ret = execvp(pev_discharging_argument_list[0], pev_discharging_argument_list);
+                            if (ret == -1)
+                            {
+                                printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
+                            }
                         }
                         else
                         {
@@ -153,11 +189,15 @@ int main(int argc, char * argv[])
                         pid_t pid_3 = vfork();
                         if (pid_3 < 0)
                         {
-                            printf("\nINFO: pev_stx_pid fork failed\n");
+                            printf("vfork: errno=%d, desc=%s \n", errno, strerror(errno));
                         }
                         else if (pid_3 == 0)
                         {
-                            execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+                            ret = execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+                            if (ret == -1)
+                            {
+                                printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
+                            }
                         }
                         else
                         {
