@@ -16,10 +16,20 @@ function handle_ctrlc()
 	echo
 	echo "Killing all processes..."
 	echo
-	killall -9 ros2 2> /dev/null
-	for client in "${clients[@]}"; do
-		killall -9 $client 2> /dev/null
-	done
+	if [ "$ident" == "EVSE" ]; then
+		killall -9 ros2 2> /dev/null
+		for client in "${clients[@]}"; do
+			killall -9 $client 2> /dev/null
+		done
+		killall -9 EVSE_CONTROL 2> /dev/null
+	elif [ "$ident" == "PEV" ]; then
+		if [ "$auth_mode" -gt 0 ]; then
+			killall -9 SEVENSTAX_PEV_EIM 2> /dev/null
+		elif [ "$auth_mode" -eq 0 ]; then
+			killall -9 SEVENSTAX_PEV_PNC 2> /dev/null
+		fi
+		killall -9 PEV_CONTROL 2> /dev/null
+	fi
 	exit
 }
 
@@ -27,12 +37,17 @@ function handle_ctrlc()
 trap handle_ctrlc SIGINT
 
 declare -i auth_mode
+# wakeup SIGBRD
+/usr/lib/easyevse/IDENT 1> /dev/null
 # identify EVSE or PEV
 /usr/lib/easyevse/IDENT
-if [ $? -eq 2 ]; then
+ret=$?
+
+if [ $ret -eq 2 ]; then
 	echo "NO EVSE and PEV be identified"
 	exit 1
-elif [ $? -eq 1 ]; then
+elif [ $ret -eq 1 ]; then
+	ident="PEV"
 	auth_mode=0
 	for arg in "$@"; do
 		if [ "$arg" == "EIM" ]; then
@@ -47,6 +62,8 @@ elif [ $? -eq 1 ]; then
 	fi
 
 	exit 0
+elif [ $ret -eq 0 ]; then
+	ident="EVSE"
 fi
 
 if [ $# -eq 0 ]; then

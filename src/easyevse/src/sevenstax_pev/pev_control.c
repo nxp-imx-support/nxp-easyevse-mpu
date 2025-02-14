@@ -40,13 +40,6 @@ const char name[] = "/stx_mqd";
 const char event[] = "/dev/input/event1";
 static unsigned long send_time = 0;
 
-void sig_handler(int sig)
-{
-    kill(pev_stx_pid, SIGTERM);
-    wait(NULL);
-    exit(1);
-}
-
 int main(int argc, char * argv[])
 {
     int key_fd, ret;
@@ -83,8 +76,6 @@ int main(int argc, char * argv[])
     {
         printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
     }
-
-    signal(SIGINT, sig_handler);
 
     key_fd = open (event, O_RDONLY | O_NONBLOCK);
     if (key_fd <= 0)
