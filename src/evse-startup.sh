@@ -23,9 +23,9 @@ function handle_ctrlc()
 		done
 		killall -9 EVSE_CONTROL 2> /dev/null
 	elif [ "$ident" == "PEV" ]; then
-		if [ "$auth_mode" -gt 0 ]; then
+		if [ "$eim" -gt 0 ]; then
 			killall -9 SEVENSTAX_PEV_EIM 2> /dev/null
-		elif [ "$auth_mode" -eq 0 ]; then
+		elif [ "$pnc" -eq 0 ]; then
 			killall -9 SEVENSTAX_PEV_PNC 2> /dev/null
 		fi
 		killall -9 PEV_CONTROL 2> /dev/null
@@ -48,17 +48,53 @@ if [ $ret -eq 2 ]; then
 	exit 1
 elif [ $ret -eq 1 ]; then
 	ident="PEV"
-	auth_mode=0
+	eim=0
+	pnc=0
+	charging=0
+	discharging=0
 	for arg in "$@"; do
-		if [ "$arg" == "EIM" ]; then
-			let auth_mode++
-		fi
+		case $arg in
+			EIM)
+			let eim++
+			;;
+			PNC)
+			let pnc++
+			;;
+			C)
+			let charging++
+			;;
+			D)
+			let discharging++
+			;;
+			*)
+			;;
+		esac
 	done
 
-	if [ "$auth_mode" -gt 0 ]; then
-		/usr/lib/easyevse/PEV_CONTROL EIM
-	else
-		/usr/lib/easyevse/PEV_CONTROL
+	if [ "$eim" -eq 0 -a "$pnc" -eq 0 ]; then
+		echo "No Authorization argument"
+		echo "Valid Authorization argument: EIM or PNC"
+		exit
+	fi
+
+	if [ "$charging" -eq 0 -a "$discharging" -eq 0 ]; then
+		echo "No Tranfer mode argument"
+		echo "Valid Tranfer Mode argument: C or D"
+		exit
+	fi
+
+	if [ "$eim" -gt 0 ]; then
+		if [ "$charging" -gt 0 ]; then
+		/usr/lib/easyevse/PEV_CONTROL EIM C
+		elif [ "$discharging" -gt 0 ]; then
+		/usr/lib/easyevse/PEV_CONTROL EIM D
+		fi
+	elif [ "$pnc" -gt 0 ]; then
+		if [ "$charging" -gt 0 ]; then
+		/usr/lib/easyevse/PEV_CONTROL PNC C
+		elif [ "$discharging" -gt 0 ]; then
+		/usr/lib/easyevse/PEV_CONTROL PNC D
+		fi
 	fi
 
 	exit 0

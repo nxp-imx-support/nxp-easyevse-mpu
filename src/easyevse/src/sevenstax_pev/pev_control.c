@@ -52,7 +52,14 @@ int main(int argc, char * argv[])
     ssize_t msg_len = 8;
     int i = 0, j = 0;
 
-    if ((argc > 1) && (strcmp(argv[1],"EIM") == 0))
+    if (argc < 3)
+    {
+        printf("Please specify the first argument as \"EIM\" or \"PNC\" \n");
+        printf("and the second argument as \"C\" or \"D\" \n");
+        return -1;
+    }
+
+    if (strcmp(argv[1],"EIM") == 0)
     {
         for (i = 0; i < 3; i++)
         {
@@ -61,7 +68,7 @@ int main(int argc, char * argv[])
         }
         printf("EV will select External Authorization \n");
     }
-    else
+    else if (strcmp(argv[1],"PNC") == 0)
     {
         for (j = 0; j < 3; j++)
         {
@@ -69,6 +76,26 @@ int main(int argc, char * argv[])
             pev_discharging_argument_list[j] = pev_discharging_pnc_argument_list[j];
         }
         printf("EV will select PnC Authorization \n");
+    }
+    else
+    {
+        printf("Please specify Authorization is \"EIM\" or \"PNC\" \n");
+        return -1;
+    }
+
+    if (strcmp(argv[2],"C") == 0)
+    {
+        pev_transfer_mode = CHARGING;
+    }
+    else if (strcmp(argv[2],"D") == 0)
+    {
+        pev_transfer_mode = DISCHARGING;
+    }
+    else
+    {
+        printf("Please specify Transfer Mode\n");
+        printf("\"C\" for charging, \"D\" for discharging.\n");
+        return -1;
     }
 
     mqd_t mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
@@ -91,7 +118,14 @@ int main(int argc, char * argv[])
     }
     else if (pid_1 == 0)
     {
-        ret = execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+        if (pev_transfer_mode == CHARGING)
+        {
+            ret = execvp(pev_charging_argument_list[0], pev_charging_argument_list);
+        }
+        else if (pev_transfer_mode == DISCHARGING)
+        {
+            ret = execvp(pev_discharging_argument_list[0], pev_discharging_argument_list);
+        }
         if (ret == -1)
         {
             printf("execvp: errno=%d, desc=%s \n", errno, strerror(errno));
