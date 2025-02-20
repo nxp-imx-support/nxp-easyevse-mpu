@@ -28,6 +28,7 @@ typedef enum {
     CMD_ERR             = -1,
     CP_STATE            = 'c',
     CP_RESISTOR_VALUE   = 'h',
+    VERSION             = 'v',
     CMD_UNKNOWN         = 'n',
 } COMMAND_CODE;
 
@@ -37,12 +38,13 @@ enum {
     UNKNOWN
 };
 /*! @brief Ring buffer size (Unit: Byte). */
-#define BUFFER_SIZE     4
+#define BUFFER_SIZE     16
 
 static int ubd_fd = -1; /* UART Bridge file description*/
 
 /* Select() timeout, dependent on UART speed and SIGBRD response time */
 static struct timeval timeout = {0, 20000};
+static char version[16];
 
 static void Init_SigBrd_Uart(void)
 {
@@ -157,14 +159,16 @@ static ssize_t nblk_read_uart(void *buf, size_t size, struct timeval *timeout)
 
 static COMMAND_CODE parse_reply(char *messageBuffer)
 {
-    char *cmd;
     if(messageBuffer[0] == '\0')
     {
         messageBuffer[0] = '0';
     }
-
-    cmd = strsep(&messageBuffer, "]");
-    strsep(&cmd, "[");
+    char * value = strsep(&messageBuffer, "[");
+    char * cmd = strsep(&messageBuffer, "]");
+    if (cmd[0] == 'v')
+    {
+        strcpy(version, value);
+    }
     if(cmd == NULL)
     {
         return CMD_ERR;
@@ -197,6 +201,10 @@ static int SIGBRD_UARTCommsProcess(char command_code)
             command[1] = (char)1;
             command[2] = '\r';
             bSize_command = 3;
+            break;
+        case VERSION:
+            command[1] = '\r';
+            bSize_command = 2;
             break;
         default:
             printf("Command error \n\r");
@@ -249,16 +257,19 @@ int main(int argc, char * argv[])
     Init_SigBrd_Uart();
     code1 = SIGBRD_UARTCommsProcess(CP_STATE);
     code2 = SIGBRD_UARTCommsProcess(CP_RESISTOR_VALUE);
+    (void)SIGBRD_UARTCommsProcess(VERSION);
     close(ubd_fd);
 
     if (code1 == CP_STATE)
     {
         printf("EVSE be identified\n");
+        printf("SIGBRD firmware version: %s\n", version);
         return EVSE;
     }
     else if (code2 == CP_RESISTOR_VALUE)
     {
         printf("PEV be identified\n");
+        printf("SIGBRD firmware version: %s\n", version);
         return PEV;
     }
     else
