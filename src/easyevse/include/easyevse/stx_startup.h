@@ -46,6 +46,7 @@ void stxV2GApplExt_EVSEGetEvPresentVoltageDis(double * EvPresentVoltageDis, bool
 void stxV2GApplExt_EVSEGetEvPresentCurrentDis(double * EvPresentCurrentDis, bool * result);
 void stxV2GApplExt_EVSESetChargingSessionPause(bool * result);
 void stxV2GApplExt_EVSEGetChargingSessionPause(bool * EvsePause, bool * result);
+void stxV2GApplExt_EVSESetCardScanned(bool * CardScanned, bool * result);
 
 void stxV2GApplExt_EVSetChargingSessionPause(bool * result);
 void stxV2GApplExt_EVSetChargingSessionResume(bool * result);
