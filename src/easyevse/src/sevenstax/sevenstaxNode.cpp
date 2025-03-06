@@ -308,11 +308,11 @@ private:
     bool CardScanned = false;
     nfc_data.nfc_id = msg->nfc_id;
     RCLCPP_INFO(this->get_logger(), "Card was scanned");    
-    if (strlen(nfc_data.nfc_id)>2)
+    if (strlen(nfc_data.nfc_id.c_str())>2)
     {
       CardScanned = true;
+      stxV2GApplExt_EVSESetCardScanned(&CardScanned, &result);
     }
-    stxV2GApplExt_EVSESetCardScanned(&CardScanned, &result);
   }
 
   void timer_callback()
