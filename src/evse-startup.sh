@@ -36,9 +36,9 @@ trap handle_ctrlc SIGINT
 
 declare -i auth_mode
 # wakeup SIGBRD
-/usr/lib/easyevse/IDENT 1> /dev/null
+/usr/lib/easyevse/SIGBRD_SYNC IDENT 1> /dev/null
 # identify EVSE or PEV
-/usr/lib/easyevse/IDENT
+/usr/lib/easyevse/SIGBRD_SYNC IDENT
 ret=$?
 
 if [ $ret -eq 2 ]; then

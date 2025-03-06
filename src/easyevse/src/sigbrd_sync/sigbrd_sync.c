@@ -28,7 +28,10 @@ typedef enum {
     CMD_ERR             = -1,
     CP_STATE            = 'c',
     CP_RESISTOR_VALUE   = 'h',
-    VERSION             = 'v',
+    SET_CP              = 's',
+    PWM_DUTY_PER_MILLI  = 'i',
+    SOFTWARE_VERSION    = 'v',
+    HARDWARE_VERSION    = 'w',
     CMD_UNKNOWN         = 'n',
 } COMMAND_CODE;
 
@@ -37,6 +40,8 @@ enum {
     PEV,
     UNKNOWN
 };
+#define CP_RESISTOR     0x3130
+#define DUTY_CYCLE      1000
 /*! @brief Ring buffer size (Unit: Byte). */
 #define BUFFER_SIZE     16
 
@@ -44,7 +49,8 @@ static int ubd_fd = -1; /* UART Bridge file description*/
 
 /* Select() timeout, dependent on UART speed and SIGBRD response time */
 static struct timeval timeout = {0, 20000};
-static char version[16];
+static char software_version[BUFFER_SIZE];
+static char hardware_version[BUFFER_SIZE];
 
 static void Init_SigBrd_Uart(void)
 {
@@ -167,7 +173,11 @@ static COMMAND_CODE parse_reply(char *messageBuffer)
     char * cmd = strsep(&messageBuffer, "]");
     if (cmd[0] == 'v')
     {
-        strcpy(version, value);
+        strncpy(software_version, value, sizeof(software_version));
+    }
+    else if (cmd[0] == 'w')
+    {
+        strncpy(hardware_version, value, sizeof(hardware_version));
     }
     if(cmd == NULL)
     {
@@ -182,7 +192,7 @@ static COMMAND_CODE parse_reply(char *messageBuffer)
  * Only EV can support CP_RESISTOR_VALUE command
  *
  ******************************************************************************/
-static int SIGBRD_UARTCommsProcess(char command_code)
+static int SIGBRD_UARTCommsProcess(char command_code, uint16_t value)
 {
     int len;
     char messageBuffer[BUFFER_SIZE];
@@ -198,16 +208,30 @@ static int SIGBRD_UARTCommsProcess(char command_code)
             bSize_command = 2;
             break;
         case CP_RESISTOR_VALUE:
-            command[1] = (char)1;
+            command[1] = '1';
             command[2] = '\r';
             bSize_command = 3;
+        case SET_CP:
+            command[1] = (char)(value >> 8);
+            command[2] = (char)(value & 0x00FF);
+            command[3] = '\r';
+            bSize_command = 4;
             break;
-        case VERSION:
+        case PWM_DUTY_PER_MILLI:
+            sprintf(&command[1], "%05d", value);
+            command[6] = '\r';
+            bSize_command = 7;
+            break;
+        case SOFTWARE_VERSION:
+            command[1] = '\r';
+            bSize_command = 2;
+            break;
+        case HARDWARE_VERSION:
             command[1] = '\r';
             bSize_command = 2;
             break;
         default:
-            printf("Command error \n\r");
+            printf("Command error \n");
             return CMD_ERR;
             break;
     }
@@ -253,28 +277,63 @@ static int SIGBRD_UARTCommsProcess(char command_code)
 int main(int argc, char * argv[])
 {
     COMMAND_CODE code1 = -1, code2 = -1;
-
+    if (argc < 2)
+    {
+        printf("Please specify one argument: IDENT, EVSE_CLOSE or EV_CLOSE\n");
+        return -1;
+    }
     Init_SigBrd_Uart();
-    code1 = SIGBRD_UARTCommsProcess(CP_STATE);
-    code2 = SIGBRD_UARTCommsProcess(CP_RESISTOR_VALUE);
-    (void)SIGBRD_UARTCommsProcess(VERSION);
+    if (strcmp(argv[1],"IDENT") == 0)
+    {
+        code1 = SIGBRD_UARTCommsProcess(CP_STATE, NULL);
+        code2 = SIGBRD_UARTCommsProcess(CP_RESISTOR_VALUE, NULL);
+        (void)SIGBRD_UARTCommsProcess(SOFTWARE_VERSION, NULL);
+        (void)SIGBRD_UARTCommsProcess(HARDWARE_VERSION, NULL);
+    }
+    /* Set SIGBRD PWM duty cycle to 100% */
+    else if (strcmp(argv[1],"EVSE_CLOSE") == 0)
+    {
+        (void)SIGBRD_UARTCommsProcess(PWM_DUTY_PER_MILLI, (uint16_t)DUTY_CYCLE);
+    }
+    /* Set SIGBRD CP state to B */
+    else if (strcmp(argv[1],"EV_CLOSE") == 0)
+    {
+        (void)SIGBRD_UARTCommsProcess(SET_CP, (uint16_t)CP_RESISTOR);
+    }
     close(ubd_fd);
+
+    if (strcmp(argv[1],"IDENT") != 0)
+    {
+        return 0;
+    }
+
+    if (hardware_version[0] == '0')
+    {
+        printf("SIGBRD Hardware: %s\n", "EVSE-SIG-BRD1X board");
+    }
+    else if (hardware_version[0] == '2')
+    {
+        printf("SIGBRD Hardware: %s\n", "EVSE-SIG-BRD2X board");
+    }
+    else if (hardware_version[0] == '3')
+    {
+        printf("SIGBRD Hardware: %s\n", "EVSE-SIG-BRD3X board");
+    }
+    printf("SIGBRD Software: %s\n", software_version);
 
     if (code1 == CP_STATE)
     {
         printf("EVSE be identified\n");
-        printf("SIGBRD firmware version: %s\n", version);
         return EVSE;
     }
     else if (code2 == CP_RESISTOR_VALUE)
     {
         printf("PEV be identified\n");
-        printf("SIGBRD firmware version: %s\n", version);
         return PEV;
     }
     else
     {
-        printf("UNKNOWN\n");
+        printf("EVSE or PEV be UNKNOWN\n");
         return UNKNOWN;
     }
 }

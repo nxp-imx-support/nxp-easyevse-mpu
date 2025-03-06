@@ -51,7 +51,7 @@ add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
 add_executable(SEVENSTAX_PEV_PNC src/sevenstax_pev/sevenstax_pev.c)
 add_executable(SEVENSTAX_PEV_EIM src/sevenstax_pev/sevenstax_pev.c)
 add_executable(PEV_CONTROL src/sevenstax_pev/pev_control.c)
-add_executable(IDENT src/ident/identify_evse.c)
+add_executable(SIGBRD_SYNC src/sigbrd_sync/sigbrd_sync.c)
 
 target_compile_definitions(CLOUD PRIVATE 
   -DSET_TRUSTED_CERT_IN_SAMPLES
@@ -109,7 +109,7 @@ install(TARGETS
   SEVENSTAX_PEV_PNC
   SEVENSTAX_PEV_EIM
   PEV_CONTROL
-  IDENT
+  SIGBRD_SYNC
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

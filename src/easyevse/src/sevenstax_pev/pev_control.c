@@ -38,6 +38,7 @@ char* pev_discharging_argument_list[] = {NULL, NULL, NULL, NULL};
 const char* const states[] = {"PAUSE", "RESUME", "STOP"};
 const char mq_name[] = "/stx_mqd";
 const char event[] = "/dev/input/event1";
+const char ev_close[] = "/usr/lib/easyevse/SIGBRD_SYNC EV_CLOSE";
 static unsigned long send_time = 0;
 mqd_t mqd = -1;
 
@@ -61,6 +62,7 @@ void sig_handler(int sig)
         printf("pev sig_handler: errno=%d, desc=%s \n", errno, strerror(errno));
     }
     mq_unlink(mq_name);
+    system(ev_close);
     exit(1);
 }
 
@@ -214,6 +216,7 @@ int main(int argc, char * argv[])
                     sleep(3);
                     kill(pev_stx_pid, SIGTERM);
                     wait(NULL);
+                    system(ev_close);
                     if (pev_transfer_mode == CHARGING)
                     {
                         pid_t pid_2 = vfork();
