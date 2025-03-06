@@ -28,7 +28,14 @@ typedef enum TAG_V2G_STATE
 
 struct sigevent sig_ev;
 const char* const states[] = {"PAUSE", "RESUME", "STOP"};
-const char name[] = "/stx_mqd";
+const char mq_name[] = "/stx_mqd";
+mqd_t mqd = -1;
+
+void sig_handler(int sig)
+{
+    mq_close(mqd);
+    exit(1);
+}
 
 static void notify_thread_func(union sigval sv)
 {
@@ -88,7 +95,7 @@ static void notify_thread_func(union sigval sv)
 
 int main(int argc, char * argv[])
 {
-    mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK);
+    mqd = mq_open(mq_name, O_RDONLY | O_NONBLOCK);
     if (mqd == (mqd_t)-1)
     {
         printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
@@ -102,5 +109,6 @@ int main(int argc, char * argv[])
     {
         printf("mq_notify: errno=%d, desc=%s \n", errno, strerror(errno));
     }
+    signal(SIGTERM, sig_handler);
     stx_startup(argc, argv);
 }

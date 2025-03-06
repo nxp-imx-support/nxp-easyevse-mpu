@@ -36,9 +36,33 @@ const char* const pev_discharging_eim_argument_list[] = {"/usr/lib/easyevse/SEVE
 char* pev_charging_argument_list[] = {NULL, NULL, NULL, NULL};
 char* pev_discharging_argument_list[] = {NULL, NULL, NULL, NULL};
 const char* const states[] = {"PAUSE", "RESUME", "STOP"};
-const char name[] = "/stx_mqd";
+const char mq_name[] = "/stx_mqd";
 const char event[] = "/dev/input/event1";
 static unsigned long send_time = 0;
+mqd_t mqd = -1;
+
+void sig_handler(int sig)
+{
+    int ret = -1;
+    mq_close(mqd);
+    ret = kill(pev_stx_pid, 0);
+    if (!ret)
+    {
+        kill(pev_stx_pid, SIGTERM);
+        ret = kill(pev_stx_pid, 0);
+        if (!ret)
+        {
+            kill(pev_stx_pid, SIGKILL);
+        }
+        wait(NULL);
+    }
+    else
+    {
+        printf("pev sig_handler: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
+    mq_unlink(mq_name);
+    exit(1);
+}
 
 int main(int argc, char * argv[])
 {
@@ -98,11 +122,14 @@ int main(int argc, char * argv[])
         return -1;
     }
 
-    mqd_t mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
+    mqd = mq_open(mq_name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
     if (mqd == (mqd_t)-1)
     {
         printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
     }
+
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
 
     key_fd = open (event, O_RDONLY | O_NONBLOCK);
     if (key_fd <= 0)

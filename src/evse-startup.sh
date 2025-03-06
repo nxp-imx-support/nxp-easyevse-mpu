@@ -17,18 +17,16 @@ function handle_ctrlc()
 	echo "Killing all processes..."
 	echo
 	if [ "$ident" == "EVSE" ]; then
-		killall -9 ros2 2> /dev/null
+		killall -15 ros2 2> /dev/null
 		for client in "${clients[@]}"; do
-			killall -9 $client 2> /dev/null
+			if [ "$client" == "SEVENSTAX" ]; then
+				killall -15 EVSE_CONTROL 2> /dev/null
+			else
+				killall -15 $client 2> /dev/null
+			fi
 		done
-		killall -9 EVSE_CONTROL 2> /dev/null
 	elif [ "$ident" == "PEV" ]; then
-		if [ "$eim" -gt 0 ]; then
-			killall -9 SEVENSTAX_PEV_EIM 2> /dev/null
-		elif [ "$pnc" -eq 0 ]; then
-			killall -9 SEVENSTAX_PEV_PNC 2> /dev/null
-		fi
-		killall -9 PEV_CONTROL 2> /dev/null
+		killall -15 PEV_CONTROL 2> /dev/null
 	fi
 	exit
 }

@@ -49,7 +49,14 @@ typedef enum TAG_V2G_STATE
 const char* const states[] = {"PAUSE", "STOP"};
 const char name[] = "/stx_mqd";
 static void msg_notify_setup(mqd_t *mqdp);
+mqd_t mqd = -1;
 
+void sig_handler(int sig)
+{
+    mq_close(mqd);
+    rclcpp::shutdown();
+    exit(1);
+}
 static void notify_thread_func(union sigval sv)
 {
     ssize_t num;
@@ -415,12 +422,14 @@ std::shared_ptr<SevenstaxNode> node;
 
 int main(int argc, char * argv[])
 {
-  mqd_t mqd = mq_open(name, O_RDONLY | O_NONBLOCK);
+  mqd = mq_open(name, O_RDONLY | O_NONBLOCK);
   if (mqd == (mqd_t)-1)
   {
     printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
   }
   msg_notify_setup(&mqd);
+
+  signal(SIGTERM, sig_handler);
 
   rclcpp::init(argc, argv);
 

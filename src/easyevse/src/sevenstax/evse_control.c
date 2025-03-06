@@ -31,8 +31,32 @@ pid_t evse_stx_pid;
 const char* const evse_charging_argument_list[] = {"/usr/lib/easyevse/SEVENSTAX", NULL};
 const char* const states[] = {"PAUSE", "STOP"};
 const char event[] = "/dev/input/event1";
-const char name[] = "/stx_mqd";
+const char mq_name[] = "/stx_mqd";
 static unsigned long send_time = 0;
+mqd_t mqd = -1;
+
+void sig_handler(int sig)
+{
+    int ret = -1;
+    mq_close(mqd);
+    ret = kill(evse_stx_pid, 0);
+    if (!ret)
+    {
+        kill(evse_stx_pid, SIGTERM);
+        ret = kill(evse_stx_pid, 0);
+        if (!ret)
+        {
+            kill(evse_stx_pid, SIGKILL);
+        }
+        wait(NULL);
+    }
+    else
+    {
+        printf("evse sig_handler: errno=%d, desc=%s \n", errno, strerror(errno));
+    }
+    mq_unlink(mq_name);
+    exit(1);
+}
 
 int main(int argc, char * argv[])
 {
@@ -45,12 +69,13 @@ int main(int argc, char * argv[])
 
     unsigned int msg_prio = 0;
     ssize_t msg_len = 8;
-    mqd_t mqd = mq_open(name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
+    mqd = mq_open(mq_name, O_WRONLY | O_CREAT | O_NONBLOCK, 0666, NULL);
     if (mqd == (mqd_t)-1)
     {
         printf("mq_open: errno=%d, desc=%s \n", errno, strerror(errno));
     }
-
+    signal(SIGINT, sig_handler);
+    signal(SIGTERM, sig_handler);
     key_fd = open (event, O_RDONLY | O_NONBLOCK);
     if (key_fd <= 0)
     {
@@ -130,7 +155,7 @@ int main(int argc, char * argv[])
                         }
                     }
                     sleep(3);
-                    kill(evse_stx_pid, SIGKILL);
+                    kill(evse_stx_pid, SIGTERM);
                     wait(NULL);
 
                     pid_t pid_2 = vfork();
