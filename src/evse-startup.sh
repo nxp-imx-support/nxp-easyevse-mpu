@@ -9,7 +9,7 @@ export OPENSSL_CONF="${OPENSSL_CONF:-/etc/ssl/openssl11_sss_se050.cnf}"
 . /etc/profile.d/ros/setup.sh
 
 # This is the order the clients should start. Do not modify it.
-clients=("BUSINESS_LOGIC" "GUI" "NFC" "SEVENSTAX" "CLOUD")
+clients=("BUSINESS_LOGIC" "GUI" "NFC" "CLOUD" "SEVENSTAX")
 
 function handle_ctrlc()
 {
