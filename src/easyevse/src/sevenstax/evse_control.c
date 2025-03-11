@@ -44,6 +44,7 @@ void sig_handler(int sig)
     if (!ret)
     {
         kill(evse_stx_pid, SIGTERM);
+        sleep(1);
         ret = kill(evse_stx_pid, 0);
         if (!ret)
         {
