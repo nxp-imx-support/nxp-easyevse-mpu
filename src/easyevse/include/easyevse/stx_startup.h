@@ -50,4 +50,6 @@ void stxV2GApplExt_EVSEGetChargingSessionPause(bool * EvsePause, bool * result);
 void stxV2GApplExt_EVSetChargingSessionPause(bool * result);
 void stxV2GApplExt_EVSetChargingSessionResume(bool * result);
 void stxV2GApplExt_EVStopCharging(bool * result);
+
+void stxV2GApplExt_EVSECheckSupportedAppProtocol(uint32_t * ulProtSelected, bool * bMinorDeviation, bool * result);
 #endif /* _STX_STARTUP_H */

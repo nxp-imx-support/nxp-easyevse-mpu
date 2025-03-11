@@ -46,6 +46,20 @@ typedef enum TAG_V2G_STATE
   STOP
 } V2G_STATE;
 
+/** \brief Service protocol types */
+typedef enum TAG_V2GLIB_PROT
+{
+    V2GLIB_PROT_UNDEFINED,          /**< Undefined protocol */
+    V2GLIB_PROT_DIN12,              /**< DIN70121:2012 protocol schema */
+    V2GLIB_PROT_ISO10,              /**< ISO15118:2010 protocol schema */
+    V2GLIB_PROT_ISO13,              /**< ISO15118:2013 protocol schema */
+    V2GLIB_PROT_ISO20,              /**< ISO15118:2020 protocol schema */
+    V2GLIB_PROT_SAE22,              /**< SAE J3105B:2022 protocol schema */
+    V2GLIB_PROT_ERROR_DIN12_TLS,    /**< Error during protocol selection, DIN70121-2 in TLS connection */
+    V2GLIB_PROT_ERROR_ISO20_TCP,    /**< Error during protocol selection, ISO15118-20 in unsecure TCP connection */
+    V2GLIB_PROT_ERROR_ISO20_TLS12   /**< Error during protocol selection, ISO15118-20 in TLS 1.2 connection */
+} V2GLIB_PROT;
+
 const char* const states[] = {"PAUSE", "STOP"};
 const char name[] = "/stx_mqd";
 static void msg_notify_setup(mqd_t *mqdp);
@@ -313,7 +327,17 @@ private:
       }
       else
       {
-        stack_data.protocol = "ISO15118";
+        uint8_t ucSchemaIdSelected = 0;
+        uint32_t ulProtSelected = 0;
+        bool bMinorDeviation;
+
+        stxV2GApplExt_EVSECheckSupportedAppProtocol(&ulProtSelected, &bMinorDeviation, &result);
+        if(ulProtSelected == V2GLIB_PROT_ISO20)
+            stack_data.protocol = "ISO15118-20";
+        else if(ulProtSelected == V2GLIB_PROT_ISO13)
+            stack_data.protocol = "ISO15118-2";
+        else
+            stack_data.protocol = "ISO15118";
       }
       //RCLCPP_INFO(this->get_logger(), "Publishing CommunicationLevel: '%s'", stack_data.protocol.c_str());
       stxV2GApplExt_EVSEGetCharging(&stack_data.charging, &result);
