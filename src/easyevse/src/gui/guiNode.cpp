@@ -87,7 +87,7 @@ public:
     stack_data.energy_delivered = 0.0;
     stack_data.protocol = "none";
     stack_data.charging = false;
-    stack_data.energy_transfer_dir = 0;
+    stack_data.energy_transfer_dir = -1;
     stack_data.present_soc = 0;
     stack_data.ev_present_voltage_dis = 0.0;
     stack_data.ev_present_current_dis = 0.0;

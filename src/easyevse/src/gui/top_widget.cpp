@@ -32,7 +32,7 @@ top_widget::top_widget(QWidget *parent)
     label_EVSE_ID.setText("EVSE ID");
     label_Grid_Limit.setText("Grid Limit");
     label_Temperature.setText("Temperature");
-    label_Remaining_Time.setText("Remian Time");
+    label_Remaining_Time.setText("Remain Time");
     label_Elapsed_Time.setText("Elapsed Time");
 
     //battery
@@ -86,31 +86,8 @@ top_widget::top_widget(QWidget *parent)
     connect(&timer, &QTimer::timeout, this, &top_widget::onTimeout);
     timer.start(300);
 
-    connect(&mode_switch, &QPushButton::clicked, this, &top_widget::on_PushButton_Mode_Switch_clicked);
     connect(&cloud_icon, &QPushButton::clicked, this, &top_widget::on_PushButton_Cloud_Icon_clicked);
     connect(&btn_pause_resume, &QPushButton::clicked, this, &top_widget::on_PushButton_Pause_Resume_clicked);
-}
-
-void top_widget::on_PushButton_Mode_Switch_clicked(){
-    if(energy_mode_flag == "charging"){
-        energy_mode_flag = "discharging";
-        energy_mode.setStyleSheet(".QLabel{background-color: qlineargradient(spread: pad,x1:0,y1:0,x2:1,y2:0,stop:0 #00c,stop:1 #00f); "
-                                  "       color: #bfb;"
-                                  "}");
-    }
-    else if(energy_mode_flag == "discharging"){
-        energy_mode_flag = "unknown";
-        energy_mode.setStyleSheet(".QLabel{background-color: qlineargradient(spread: pad,x1:0,y1:0,x2:1,y2:0,stop:0 #bfb,stop:1 #bfb); "
-                                  "       color: #bfb;"
-                                  "}");
-    }
-    else {
-        energy_mode_flag = "charging";
-        energy_mode.setStyleSheet(".QLabel{background-color: qlineargradient(spread: pad,x1:0,y1:0,x2:1,y2:0,stop:0 #f80,stop:1 #f40); "
-                                  "       color: #bfb;"
-                                  "}");
-    }
-
 }
 
 void top_widget::on_PushButton_Cloud_Icon_clicked(){
@@ -328,7 +305,6 @@ void top_widget::setup_widget_main()
     layout_main_control_h.addWidget(&finger_icon);
     layout_main_control_h.addLayout(&layout_main_control_v1);
     layout_main_control_v1.addWidget(&btn_pause_resume);
-    layout_main_control_v1.addWidget(&mode_switch);
 }
 
 

@@ -107,7 +107,6 @@ public:
     QLabel label_DisChg_I; QLineEdit lineEdit_DisChg_I;
 
     QPushButton btn_pause_resume;
-    QPushButton mode_switch;
 
     QLineEdit text_license;
     QLineEdit text_debug;
@@ -116,7 +115,6 @@ public:
 
   public slots:
     void onTimeout();
-    void on_PushButton_Mode_Switch_clicked();
     void on_PushButton_Cloud_Icon_clicked();
     void on_PushButton_Pause_Resume_clicked();
 
