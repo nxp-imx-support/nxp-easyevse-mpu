@@ -132,6 +132,7 @@ public:
     cJSON_AddNumberToObject(telemetry_data, "EnergyDelivered", stack_data.energy_delivered);
     cJSON_AddStringToObject(telemetry_data, "ChargeStatus", (stack_data.chg_state).c_str());
     cJSON_AddNumberToObject(telemetry_data, "IsCharging", stack_data.charging);
+    cJSON_AddStringToObject(telemetry_data, "ChargeDirection", stack_data.energy_transfer_dir ? "Discharge" : "Charge");
     cJSON_AddStringToObject(telemetry_data, "Protocol", stack_data.protocol.c_str());
 
     cJSON_AddNumberToObject(telemetry_data, "irms", meter_data.current);
@@ -182,6 +183,7 @@ private:
     stack_data.energy_delivered = msg->energy_delivered;
     stack_data.protocol = msg->protocol;
     stack_data.charging = msg->charging;
+    stack_data.energy_transfer_dir = msg->energy_transfer_dir;
     cloud_telemetry_callback();
   }
 
