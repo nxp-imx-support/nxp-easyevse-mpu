@@ -16,6 +16,7 @@ function handle_ctrlc()
 	echo
 	echo "Killing all processes..."
 	echo
+	# Try to softly terminate running processes with SIGTERM
 	if [ "$ident" == "EVSE" ]; then
 		killall -15 ros2 2> /dev/null
 		for client in "${clients[@]}"; do
@@ -28,6 +29,13 @@ function handle_ctrlc()
 	elif [ "$ident" == "PEV" ]; then
 		killall -15 PEV_CONTROL 2> /dev/null
 	fi
+
+	# In case of error, if SIGTERM does not work, enforce with SIGKILL
+	sleep 2
+	killall -9 ros2 2> /dev/null
+	for client in "${clients[@]}"; do
+		killall -9 $client 2> /dev/null
+	done
 	exit
 }
 
@@ -140,7 +148,7 @@ else
 
 	args=("$@")
 	ordered_args=()
-	# Order the received arguments in the order in which the clients should start 
+	# Order the received arguments in the order in which the clients should start
 	for elem in "${clients[@]}"; do
 		if [[ " ${args[@]} " =~ " $elem " ]]; then
 			ordered_args+=("$elem")
