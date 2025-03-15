@@ -97,7 +97,7 @@ void send_confirm_callback(IOTHUB_CLIENT_CONFIRMATION_RESULT result, void *userC
     (void)userContextCallback;
     // When a message is sent this callback will get invoked
     g_message_count_send_confirmations++;
-    (void)printf("[CLOUD] Confirmation callback  received for message %lu with result %s\r\n", (unsigned long)g_message_count_send_confirmations, MU_ENUM_TO_STRING(IOTHUB_CLIENT_CONFIRMATION_RESULT, result));
+    // (void)printf("[CLOUD] Confirmation callback  received for message %lu with result %s\r\n", (unsigned long)g_message_count_send_confirmations, MU_ENUM_TO_STRING(IOTHUB_CLIENT_CONFIRMATION_RESULT, result));
 }
 
 /* This is the callback to inform the status of the last reported properties */
