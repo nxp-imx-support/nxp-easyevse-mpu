@@ -467,7 +467,8 @@ int main(int argc, char * argv[])
   executor.add_node(node);
   while(1)
   {
-    executor.spin_once(100000000ns);
+    // Refresh every 200ms
+    executor.spin_once(2 * 100000000ns);
   }
   rclcpp::shutdown(); 
   return 0;

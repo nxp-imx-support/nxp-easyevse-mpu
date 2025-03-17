@@ -241,7 +241,8 @@ int main(int argc, char * argv[])
 
   while(1)
   {
-    executor.spin_once(100000000ns);
+    // Spin every 2 sec
+    executor.spin_once(2 * 1000000000ns);
     if(node->cloud_data.grid_stop_req == true)
     {
       timediff = std::chrono::steady_clock::now() - node->last;

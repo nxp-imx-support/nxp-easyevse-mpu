@@ -75,7 +75,8 @@ int main(int argc, char * argv[])
 
   while(1)
   {
-    executor.spin_once(1000000000ns);
+    // Spin every 2 sec
+    executor.spin_once(2 * 1000000000ns);
     node->temperature_sim();
   }
   rclcpp::shutdown();

@@ -282,7 +282,8 @@ void ros_run() {
 
   while(1)
   {
-    executor.spin_once(100000000ns);
+    // Refresh every second
+    executor.spin_once(1000000000ns);
     if(node->gui_data.user_stop_req == true)
     {
       timediff = std::chrono::steady_clock::now() - node->last;

@@ -33,7 +33,7 @@ EndPoint_t identity = NFC;
 
 extern "C" void C_sendID (char* cardID);
 
-void run_NFC () 
+void run_NFC ()
 {
   int res = 0x00;
 
@@ -58,7 +58,7 @@ public:
     publisher_ = this->create_publisher<interfaces::msg::NfcData>("nfc_data", 10);
   }
 
-  void sendID(char* cardID) 
+  void sendID(char* cardID)
   {
     nfc_data.nfc_id = cardID;
     RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", nfc_data.nfc_id.c_str());
@@ -77,7 +77,7 @@ private:
 
 std::shared_ptr<NFCNode> node;
 
-extern "C" void C_sendID (char* cardID) 
+extern "C" void C_sendID (char* cardID)
 {
   node->sendID(cardID);
 }
@@ -89,20 +89,21 @@ int main(int argc, char * argv[])
   node = std::make_shared<NFCNode>();
 
   rclcpp::executors::SingleThreadedExecutor executor;
-  
+
   PrepareLoggingEnv(identity);
 
   std::thread NFC_thread = std::thread(run_NFC);
-  
+
   cout << "Started the NFC thread ..\n" << endl;
   executor.add_node(node);
 
   while(1)
   {
-    executor.spin_once(100000000ns);
+    // Spin each second
+    executor.spin_once(1000000000ns);
   }
   rclcpp::shutdown();
-  
+
   return 0;
 
 }
