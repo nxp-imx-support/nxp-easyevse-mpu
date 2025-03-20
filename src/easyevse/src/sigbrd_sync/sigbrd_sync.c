@@ -323,17 +323,17 @@ int main(int argc, char * argv[])
 
     if (code1 == CP_STATE)
     {
-        printf("EVSE be identified\n");
+        printf("EVSE is identified\n");
         return EVSE;
     }
     else if (code2 == CP_RESISTOR_VALUE)
     {
-        printf("PEV be identified\n");
+        printf("PEV is identified\n");
         return PEV;
     }
     else
     {
-        printf("EVSE or PEV be UNKNOWN\n");
+        printf("Unknown EVSE or PEV\n");
         return UNKNOWN;
     }
 }
