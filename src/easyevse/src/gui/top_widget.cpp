@@ -220,8 +220,9 @@ void top_widget::setup_widget_main()
     layout_main_v.addWidget(&text_license);
 
     layout_main_menu.addWidget(&Card_UID_icon); layout_main_menu.addWidget(&lineEdit_Card_UID);
-    layout_main_menu.addStretch(1);
+    layout_main_menu.addStretch(3);
     layout_main_menu.addWidget(&label_Temperature); layout_main_menu.addWidget(&lineEdit_Temperature);
+    layout_main_menu.addStretch(1);
     layout_main_menu.addWidget(&cloud_icon);
 
     layout_main_evse_ev.addWidget(&evse_icon);
@@ -312,6 +313,7 @@ void top_widget::resizeEvent(QResizeEvent *event)
     label_EVSE_ID.setFont(font_item); lineEdit_EVSE_ID.setFont(font_content); lineEdit_EVSE_ID.setReadOnly(true);
     label_Charge_State.setFont(font_item); lineEdit_Charge_State.setFont(font_content); lineEdit_Charge_State.setReadOnly(true);
     lineEdit_Card_UID.setFont(font_content); lineEdit_Card_UID.setReadOnly(true);
+    lineEdit_Card_UID.setFixedWidth(width / 3);
 
     Card_UID_icon.setFixedSize(font_item.pixelSize() * 1.1, font_item.pixelSize());
     cloud_icon.setFixedSize(font_item.pixelSize() * 1.2, font_item.pixelSize());
