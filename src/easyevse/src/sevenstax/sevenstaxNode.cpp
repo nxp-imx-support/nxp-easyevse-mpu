@@ -156,6 +156,18 @@ public:
 
   }
 
+  void init_stack_data_pre()
+  {
+    cloud_data.grid_pwr_lim = 32.0;
+    cloud_data.tariff_cost = 9.0;
+    cloud_data.tariff_rate = 10.0;
+    cloud_data.grid_stop_req = false;
+
+    stack_data.energy_transfer_dir = -1;
+    
+    nfc_data.nfc_id = "NULL";
+  }
+
   void init_stack_data() 
   {
     gui_data.user_stop_req = false;
@@ -367,7 +379,7 @@ private:
         }
         //RCLCPP_INFO(this->get_logger(), "Publishing AuthStatus: '%s'", stack_data.vehicle_auth.c_str());
         stxV2GApplExt_EVSEGetDeliveredCurrent(&tempd, &result);
-        stack_data.chg_rate = (uint16_t) tempd;
+        stack_data.chg_rate = tempd;
         //RCLCPP_INFO(this->get_logger(), "Publishing ChgRate: '%d'", stack_data.chg_rate);
 #define EVCCID_BUF_SZ (256)
         char evccid_buf[EVCCID_BUF_SZ];
@@ -466,6 +478,8 @@ int main(int argc, char * argv[])
   rclcpp::init(argc, argv);
 
   node = std::make_shared<SevenstaxNode>();
+
+  node->init_stack_data_pre();
 
   rclcpp::executors::SingleThreadedExecutor executor;
 

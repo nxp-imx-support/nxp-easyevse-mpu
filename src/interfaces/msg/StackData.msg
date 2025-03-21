@@ -1,7 +1,7 @@
 string      evcc_id
 string      vehicle_auth
 float64     energy_requested
-int16       chg_rate
+float64     chg_rate
 float64     chg_cost
 string      chg_elapsed_time
 string      chg_remaining_time
