@@ -57,11 +57,7 @@ public:
   void init_gui_data()
   {
     gui_data.user_stop_req = false;
-    gui_data.user_force_req = false;
     gui_data.user_pause_req = false;
-    gui_data.user_force_pwr = 0;
-    gui_data.user_force_cost = 0;
-    gui_data.user_force_rate = 0;
     
     cloud_data.grid_pwr_lim = 32.0;
     cloud_data.tariff_cost = 0.0;
@@ -116,26 +112,6 @@ public:
 private:
   void timer_callback()
   {
-    if(gui_data.user_force_req != w->top_widget_inst.forced_grid_pwr_limit)
-    {
-      if(w->top_widget_inst.forced_grid_pwr_limit)
-      {
-        gui_data.user_force_req = true;
-        gui_data.user_force_pwr = 9;
-        gui_data.user_force_cost = 3;
-        gui_data.user_force_rate = 4;
-      }
-      else
-      {
-        gui_data.user_force_req = false;
-        gui_data.user_force_pwr = 0;
-        gui_data.user_force_cost = 0;
-        gui_data.user_force_rate = 0;
-      }
-      publisher_->publish(gui_data);
-      QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Grid_Limit, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(gui_data.user_force_pwr)));
-    }
-
     if(w->top_widget_inst.isPausing)
     {
       w->top_widget_inst.btn_pause_resume.setText("PAUSED");
@@ -240,9 +216,6 @@ private:
 
   void cloud_data_callback(const interfaces::msg::CloudData::SharedPtr msg)
   { 
-    if(gui_data.user_force_req)
-	    return;
-
     cloud_data.grid_pwr_lim = msg->grid_pwr_lim;
     cloud_data.tariff_cost = msg->tariff_cost;
     cloud_data.tariff_rate = msg->tariff_rate;

@@ -171,11 +171,7 @@ public:
   void init_stack_data() 
   {
     gui_data.user_stop_req = false;
-    gui_data.user_force_req = false;
     gui_data.user_pause_req = false;
-    gui_data.user_force_pwr = 0;
-    gui_data.user_force_cost = 0;
-    gui_data.user_force_rate = 0;
 
     cloud_data.grid_pwr_lim = 32.0;
     cloud_data.tariff_cost = 0.0;
@@ -235,18 +231,6 @@ private:
   {
     bool result;
 
-    if(gui_data.user_force_req != msg->user_force_req)
-    {
-      gui_data.user_force_req = msg->user_force_req;
-      cloud_data.grid_pwr_lim = msg->user_force_pwr;
-      cloud_data.tariff_cost = msg->user_force_cost;
-      cloud_data.tariff_rate = msg->user_force_rate;
-      if(stack_data.charging)
-      {
-        setMaxCurrentLimit();
-      }
-    }
-
     if((gui_data.user_pause_req != msg->user_pause_req))
     {
       gui_data.user_pause_req = msg->user_pause_req;
@@ -261,9 +245,6 @@ private:
     
     RCLCPP_INFO(this->get_logger(), "%s: %d", __func__, __LINE__);
     
-    if(gui_data.user_force_req)
-	    return;
-
     if(cloud_data.grid_pwr_lim != msg->grid_pwr_lim)
     {
       cloud_data.grid_pwr_lim = msg->grid_pwr_lim;

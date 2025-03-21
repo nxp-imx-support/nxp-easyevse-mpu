@@ -115,7 +115,6 @@ public:
 
   public slots:
     void onTimeout();
-    void on_PushButton_Cloud_Icon_clicked();
     void on_PushButton_Pause_Resume_clicked();
 
   protected:

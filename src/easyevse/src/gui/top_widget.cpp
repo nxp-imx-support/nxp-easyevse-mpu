@@ -86,25 +86,7 @@ top_widget::top_widget(QWidget *parent)
     connect(&timer, &QTimer::timeout, this, &top_widget::onTimeout);
     timer.start(300);
 
-    connect(&cloud_icon, &QPushButton::clicked, this, &top_widget::on_PushButton_Cloud_Icon_clicked);
     connect(&btn_pause_resume, &QPushButton::clicked, this, &top_widget::on_PushButton_Pause_Resume_clicked);
-}
-
-void top_widget::on_PushButton_Cloud_Icon_clicked(){
-    QMessageBox messageBox;
-    messageBox.setWindowTitle("Selection");
-    messageBox.setText("Please confirm the action to configure Grid Power Limit without CLOUD.");
-    messageBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-    messageBox.setDefaultButton(QMessageBox::No);
-
-    int ret = messageBox.exec();
-    if (ret == QMessageBox::Yes)
-        forced_grid_pwr_limit = true;
-    else if(ret == QMessageBox::No)
-        forced_grid_pwr_limit = false;
-    else
-	forced_grid_pwr_limit = forced_grid_pwr_limit;
-
 }
 
 void top_widget::on_PushButton_Pause_Resume_clicked(){
