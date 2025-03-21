@@ -187,6 +187,14 @@ void top_widget::onTimeout()
             label_DisChg_I.setVisible(false); lineEdit_DisChg_I.setVisible(false);
         }
     }
+
+    //QString protocol = lineEdit_Protocol.text();
+    if((energy_mode_flag == "charging" || energy_mode_flag == "discharging")){
+        pb.setVisible(true);
+    }
+    else{
+        pb.setVisible(false);
+    }
 }
 top_widget::~top_widget()
 {
