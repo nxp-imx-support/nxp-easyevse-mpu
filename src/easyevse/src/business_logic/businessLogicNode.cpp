@@ -36,7 +36,7 @@ public:
     general_data.lon = 25.837845529477256;
     general_data.alt = 314.96;
     general_data.temperature = 30;
-    general_data.evse_id = "NXP@EASYEVSE";
+    general_data.evse_id = "EASYEVSE@NXP&SEVENSTAX";
     general_data.evse_rating = MAX_EVSE_CURRENT;
     RCLCPP_INFO(this->get_logger(), "Initialised general charger data\n");
     publisher_->publish(general_data);
