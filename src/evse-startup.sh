@@ -27,7 +27,15 @@ function handle_ctrlc()
 			fi
 		done
 	elif [ "$ident" == "PEV" ]; then
-		killall -15 PEV_CONTROL 2> /dev/null
+		if [ "$iso2" -eq 0 ]; then
+			killall -15 PEV_CONTROL 2> /dev/null
+		else
+			if [ "$eim" -gt 0 ]; then
+				killall -15 SEVENSTAX_PEV_ISO2_EIM 2> /dev/null
+			elif [ "$pnc" -gt 0 ]; then
+				killall -15 SEVENSTAX_PEV_ISO2_PNC 2> /dev/null
+			fi
+		fi
 	fi
 
 	# In case of error, if SIGTERM does not work, enforce with SIGKILL
@@ -58,6 +66,7 @@ elif [ $ret -eq 1 ]; then
 	pnc=0
 	charging=0
 	discharging=0
+	iso2=0
 	for arg in "$@"; do
 		case $arg in
 			EIM)
@@ -72,6 +81,9 @@ elif [ $ret -eq 1 ]; then
 			D)
 			let discharging++
 			;;
+			ISO2)
+			let iso2++
+			;;
 			*)
 			;;
 		esac
@@ -81,6 +93,15 @@ elif [ $ret -eq 1 ]; then
 		echo "No Authorization argument"
 		echo "Valid Authorization argument: EIM or PNC"
 		exit
+	fi
+
+	if [ "$iso2" -gt 0 ]; then
+		if [ "$eim" -gt 0 ]; then
+		/usr/lib/easyevse/SEVENSTAX_PEV_ISO2_EIM
+		elif [ "$pnc" -gt 0 ]; then
+		/usr/lib/easyevse/SEVENSTAX_PEV_ISO2_PNC
+		fi
+		suspend -f
 	fi
 
 	if [ "$charging" -eq 0 -a "$discharging" -eq 0 ]; then

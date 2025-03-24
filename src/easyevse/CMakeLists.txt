@@ -51,6 +51,8 @@ add_executable(EVSE_CONTROL src/sevenstax/evse_control.c)
 add_executable(SEVENSTAX_PEV_PNC src/sevenstax_pev/sevenstax_pev.c)
 add_executable(SEVENSTAX_PEV_EIM src/sevenstax_pev/sevenstax_pev.c)
 add_executable(PEV_CONTROL src/sevenstax_pev/pev_control.c)
+add_executable(SEVENSTAX_PEV_ISO2_PNC src/sevenstax_pev/sevenstax_pev_iso2.c)
+add_executable(SEVENSTAX_PEV_ISO2_EIM src/sevenstax_pev/sevenstax_pev_iso2.c)
 add_executable(SIGBRD_SYNC src/sigbrd_sync/sigbrd_sync.c)
 
 target_compile_definitions(CLOUD PRIVATE 
@@ -93,6 +95,16 @@ target_link_libraries(SEVENSTAX_PEV_EIM
   gpiod
 )
 
+target_link_libraries(SEVENSTAX_PEV_ISO2_EIM
+  stx_v2g_pev_eim_cg5317_eth_iso2
+  gpiod
+)
+
+target_link_libraries(SEVENSTAX_PEV_ISO2_PNC
+  stx_v2g_pev_pnc_cg5317_eth_iso2
+  gpiod
+)
+
 ament_target_dependencies(NFC rclcpp std_msgs interfaces)
 ament_target_dependencies(GUI rclcpp std_msgs Qt6Widgets interfaces)
 ament_target_dependencies(CLOUD rclcpp std_msgs interfaces)
@@ -109,6 +121,8 @@ install(TARGETS
   SEVENSTAX_PEV_PNC
   SEVENSTAX_PEV_EIM
   PEV_CONTROL
+  SEVENSTAX_PEV_ISO2_PNC
+  SEVENSTAX_PEV_ISO2_EIM
   SIGBRD_SYNC
   DESTINATION lib/${PROJECT_NAME})
 
