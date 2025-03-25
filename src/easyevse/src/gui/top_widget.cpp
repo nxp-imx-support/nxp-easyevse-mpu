@@ -97,6 +97,7 @@ void top_widget::on_PushButton_Pause_Resume_clicked(){
 
 void top_widget::onTimeout()
 {
+    QString protocol = lineEdit_Protocol.text();
     tmp = "";
 
     switch(count % 5)
@@ -121,7 +122,7 @@ void top_widget::onTimeout()
         break;
     }
 
-    if(energy_mode_flag == "charging"){
+    if(energy_mode_flag == "charging" || energy_mode_flag == "basic-charging" || energy_mode_flag == "iso15118-2-charging"){
         energy_mode.setStyleSheet(".QLabel{background-color: qlineargradient(spread: pad,x1:0,y1:0,x2:1,y2:0,stop:0 #f80,stop:1 #f40); "
                                   "       color: #bfb;"
                                   "}");
@@ -147,10 +148,11 @@ void top_widget::onTimeout()
     text_debug.setText(energy_mode_flag + " count: " + QString::number(count));
     pb.setValue(count % 100);
 #endif
+
     if(energy_mode_flag != energy_mode_flag_old)
     {
         energy_mode_flag_old = energy_mode_flag;
-        if(energy_mode_flag == "charging"){
+        if(energy_mode_flag == "charging" || energy_mode_flag == "basic-charging" || energy_mode_flag == "iso15118-2-charging"){
             label_Requested_Energy.setVisible(true); lineEdit_Requested_Energy.setVisible(true);
             label_Delivered_Energy.setVisible(true); lineEdit_Delivered_Energy.setVisible(true);
             label_Charge_Current.setVisible(true); lineEdit_Charge_Current.setVisible(true);
@@ -188,7 +190,6 @@ void top_widget::onTimeout()
         }
     }
 
-    //QString protocol = lineEdit_Protocol.text();
     if((energy_mode_flag == "charging" || energy_mode_flag == "discharging")){
         pb.setVisible(true);
     }

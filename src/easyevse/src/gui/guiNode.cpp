@@ -177,6 +177,10 @@ private:
             w->top_widget_inst.energy_mode_flag = "charging";
 	else if(msg->energy_transfer_dir == 1)
 	    w->top_widget_inst.energy_mode_flag = "discharging";
+	else if(msg->energy_transfer_dir == 10)
+	    w->top_widget_inst.energy_mode_flag = "basic-charging"; //basic charging
+	else if(msg->energy_transfer_dir == 11)
+	    w->top_widget_inst.energy_mode_flag = "iso15118-2-charging"; //iso15118-2 cahrging
 	else
 	    w->top_widget_inst.energy_mode_flag = "unknown";
     } else {

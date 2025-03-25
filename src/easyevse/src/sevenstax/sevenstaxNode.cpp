@@ -378,8 +378,14 @@ private:
 
       stack_data.chg_cost = stack_data.energy_delivered * cloud_data.tariff_cost;
       //RCLCPP_INFO(this->get_logger(), "Publishing ChargeCost: '%.2f'", stack_data.chg_cost);
-      
-      stxV2GApplExt_EVSEGetEnergyTransferDir(&stack_data.energy_transfer_dir, &result);
+
+      if(stack_data.protocol == "BASIC" && stack_data.charging)
+          stack_data.energy_transfer_dir = 10;
+      else if(stack_data.protocol == "ISO15118-2" && stack_data.charging)
+          stack_data.energy_transfer_dir = 11;
+      else
+          stxV2GApplExt_EVSEGetEnergyTransferDir(&stack_data.energy_transfer_dir, &result);
+
       stxV2GApplExt_EVSEGetPresentSOC(&stack_data.present_soc, &result);
       stxV2GApplExt_EVSEGetEvPresentVoltageDis(&stack_data.ev_present_voltage_dis, &result);
       stxV2GApplExt_EVSEGetEvPresentCurrentDis(&stack_data.ev_present_current_dis, &result);
