@@ -31,6 +31,7 @@ top_widget::top_widget(QWidget *parent)
     label_Charge_Current.setText("Current");
     label_EVSE_ID.setText("EVSE ID");
     label_Grid_Limit.setText("Grid Limit");
+    lineEdit_Grid_Limit.setText("32(Default)");
     label_Temperature.setText("Temperature");
     label_Remaining_Time.setText("Remain Time");
     label_Elapsed_Time.setText("Elapsed Time");
@@ -229,7 +230,9 @@ void top_widget::setup_widget_main()
     layout_main_v.addWidget(&text_license);
 
     layout_main_menu.addWidget(&Card_UID_icon); layout_main_menu.addWidget(&lineEdit_Card_UID);
-    layout_main_menu.addStretch(3);
+    layout_main_menu.addStretch(1);
+    layout_main_menu.addWidget(&label_EVSE_ID); layout_main_menu.addWidget(&lineEdit_EVSE_ID);
+    layout_main_menu.addStretch(1);
     layout_main_menu.addWidget(&label_Temperature); layout_main_menu.addWidget(&lineEdit_Temperature);
     layout_main_menu.addStretch(1);
     layout_main_menu.addWidget(&cloud_icon);
@@ -241,7 +244,7 @@ void top_widget::setup_widget_main()
     layout_main_evse_ev_h1.addWidget(&pb);
     layout_main_evse_ev_v2.addWidget(&ev_icon);
     layout_main_evse_ev_v1.addLayout(&layout_main_evse_ev_h2);
-    layout_main_evse_ev_g1.addWidget(&label_EVSE_ID, 0, 0); layout_main_evse_ev_g1.addWidget(&lineEdit_EVSE_ID, 0, 1);
+    //layout_main_evse_ev_g1.addWidget(&label_EVSE_ID, 0, 0); layout_main_evse_ev_g1.addWidget(&lineEdit_EVSE_ID, 0, 1);
     layout_main_evse_ev_g1.addWidget(&label_Auth_State, 1, 0); layout_main_evse_ev_g1.addWidget(&lineEdit_Auth_State, 1, 1);
     layout_main_evse_ev_g1.addWidget(&label_Power_Rate, 2, 0); layout_main_evse_ev_g1.addWidget(&lineEdit_Power_Rate, 2, 1);
     layout_main_evse_ev_g1.addWidget(&label_Grid_Limit, 3, 0); layout_main_evse_ev_g1.addWidget(&lineEdit_Grid_Limit, 3, 1);
@@ -322,7 +325,9 @@ void top_widget::resizeEvent(QResizeEvent *event)
     label_EVSE_ID.setFont(font_item); lineEdit_EVSE_ID.setFont(font_content); lineEdit_EVSE_ID.setReadOnly(true);
     label_Charge_State.setFont(font_item); lineEdit_Charge_State.setFont(font_content); lineEdit_Charge_State.setReadOnly(true);
     lineEdit_Card_UID.setFont(font_content); lineEdit_Card_UID.setReadOnly(true);
-    lineEdit_Card_UID.setFixedWidth(width / 3);
+    lineEdit_Card_UID.setFixedWidth(width / 4);
+    lineEdit_EVSE_ID.setFixedWidth(width / 4);
+    lineEdit_Temperature.setFixedWidth(width / 30);
 
     Card_UID_icon.setFixedSize(font_item.pixelSize() * 1.1, font_item.pixelSize());
     cloud_icon.setFixedSize(font_item.pixelSize() * 1.2, font_item.pixelSize());
