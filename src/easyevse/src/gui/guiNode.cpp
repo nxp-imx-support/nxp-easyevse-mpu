@@ -164,13 +164,13 @@ private:
 
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Vehicle_ID, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->evcc_id.c_str()));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Auth_State, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->vehicle_auth.c_str()));
-    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Requested_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_requested/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Requested_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_requested)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Charge_Current, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->chg_rate)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Charge_Cost, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->chg_cost)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Elapsed_Time, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_elapsed_time.c_str()));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Remaining_Time, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_remaining_time.c_str()));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Mode, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->chg_state.c_str()));
-    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Delivered_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Delivered_Energy, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Protocol, "setText", Qt::QueuedConnection, Q_ARG(QString, msg->protocol.c_str()));
     if(msg->charging) {
 	if(msg->energy_transfer_dir == 0)
@@ -190,7 +190,7 @@ private:
     QMetaObject::invokeMethod(&w->top_widget_inst.pb, "setValue", Qt::QueuedConnection, Q_ARG(int, msg->present_soc));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_V, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_voltage_dis)));
     QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_DisChg_I, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->ev_present_current_dis)));
-    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Transferred, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered/1000.0)));
+    QMetaObject::invokeMethod(&w->top_widget_inst.lineEdit_Transferred, "setText", Qt::QueuedConnection, Q_ARG(QString, QString::number(msg->energy_delivered)));
 
     w->top_widget_inst.isPausing = stack_data.is_pausing;
   }
