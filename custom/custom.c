@@ -342,8 +342,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // }
       }
       
-    }
-    if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
+    } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
       // lv_label_set_text(guider_ui.screen_label_25, topic);
       char *delim = ".";
       char before_dot[20], after_dot[20];
@@ -352,8 +351,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       strcpy(before_dot, token);
       
       lv_label_set_text(guider_ui.screen_label_4, token);
-    }
-    if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
+    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
       // lv_label_set_text(guider_ui.screen_label_25, topic);
       //move to increare_batery_level lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
@@ -377,8 +375,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       } 
       increase_battery_level();
 
-    }
-    if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
+    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
       // will uncomment with actual values
       // lv_label_set_text(guider_ui.screen_label_3, (char *)message->payload);
       // strcpy(final_energy,(char *)message->payload);
@@ -387,8 +384,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       
     }
   
-    // MQTTClient_freeMessage(&message);
-    // MQTTClient_free(topic);
+    MQTTClient_freeMessage(&message);
+    MQTTClient_free(topic);
+    return 1;
 }
 
 void get_mqtt_state_for_evse()
@@ -399,18 +397,45 @@ void get_mqtt_state_for_evse()
   MQTTClient_setCallbacks(client, NULL, NULL, messageArrived, NULL);
 
   MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer; 
-  conn_opts.keepAliveInterval = 20; 
-  conn_opts.cleansession = 1; 
+  conn_opts.connectTimeout = 30;
+  conn_opts.keepAliveInterval = 60;
+  conn_opts.retryInterval = 5;
+  conn_opts.cleansession = 1;
 
-  if (MQTTClient_connect(client, &conn_opts) != MQTTCLIENT_SUCCESS) { 
-      fprintf(stderr, "Failed to connect to broker\n"); 
+  int retry_count = 0;
+  int rc;
+  // Retry connecting 10 times in case of failure
+  while (retry_count < 10) {
+    rc = MQTTClient_connect(client, &conn_opts);
+    if (rc == MQTTCLIENT_SUCCESS) {
+      break;
+    }
+    printf("MQTT connection failed (attempt %d/10), retrying in 2 seconds...\n", retry_count + 1);
+    sleep(2);
+    retry_count++;
+  }
+
+  if (rc != MQTTCLIENT_SUCCESS) {
+      printf("Failed to connect to broker\n");
+      return;
   }else{
+      printf("Connected to MQTT broker ...\n");
     // lv_label_set_text(guider_ui.pageStatic_label_1, "");
   }  
-  MQTTClient_subscribe(client, "everest_external/nodered/1/state/temperature", QOS);
-  MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
-  MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKw", QOS); 
-  MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS); 
+
+  // Introduced delay to avoid subscription lost due to Timing/race conditoin issue
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS);
+  printf("Subscribe totalKWattHr: %d\n", rc);
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKw", QOS);
+  printf("Subscribe totalKw: %d\n", rc);
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/temperature", QOS);
+  printf("Subscribe temperature: %d\n", rc);
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
+  printf("Subscribe state_string: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
