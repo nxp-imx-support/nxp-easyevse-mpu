@@ -23,7 +23,6 @@ typedef struct
 	lv_obj_t *screen_cont_1;
 	lv_obj_t *screen_img_2;
 	lv_obj_t *screen_label_1;
-	lv_obj_t *screen_img_3;
 	lv_obj_t *screen_label_3;
 	lv_obj_t *screen_img_4;
 	lv_obj_t *screen_img_5;
@@ -41,7 +40,6 @@ typedef struct
 	lv_obj_t *screen_label_9;
 	lv_obj_t *screen_label_12;
 	lv_obj_t *screen_label_11;
-	lv_obj_t *screen_img_10;
 	lv_obj_t *screen_label_15;
 	lv_obj_t *screen_img_11;
 	lv_obj_t *screen_label_16;
@@ -50,9 +48,7 @@ typedef struct
 	lv_obj_t *screen_label_21;
 	lv_obj_t *screen_sw_2;
 	lv_obj_t *screen_label_22;
-	lv_obj_t *screen_img_12;
 	lv_obj_t *screen_label_23;
-	lv_obj_t *screen_img_13;
 	lv_obj_t *screen_roller_1;
 	lv_obj_t *screen_label_18;
 	lv_obj_t *screen_label_25;
@@ -76,8 +72,6 @@ typedef struct
 	lv_obj_t *screen_label_35;
 	lv_obj_t *screen_label_38;
 	lv_obj_t *screen_label_39;
-	lv_obj_t *screen_img_18;
-	lv_obj_t *screen_img_19;
 	lv_obj_t *screen_label_19;
 	lv_obj_t *screen_label_40;
 	lv_obj_t *screen_cont_3;
@@ -87,10 +81,6 @@ typedef struct
 	lv_obj_t *screen_label_29;
 	lv_obj_t *screen_label_30;
 	lv_obj_t *screen_label_31;
-	lv_obj_t *screen_cont_2;
-	lv_obj_t *screen_qrcode_1;
-	lv_obj_t *screen_img_8;
-	lv_obj_t *screen_label_37;
 	lv_obj_t *screen_label_13;
 }lv_ui;
 
@@ -127,23 +117,16 @@ extern lv_ui guider_ui;
 
 void setup_scr_screen(lv_ui *ui);
 LV_IMG_DECLARE(_Car_Unplugged_0_alpha_1280x800);
-LV_IMG_DECLARE(_NXP_LOGO_alpha_190x115);
 LV_IMG_DECLARE(_thermometeroutline_transparent_g_alpha_49x46);
 LV_IMG_DECLARE(_flashoutline_transparent_steel_blue_alpha_39x38);
 LV_IMG_DECLARE(_wifisharp_transparent_alpha_35x33);
 LV_IMG_DECLARE(_locationsharp_transparent_alpha_30x29);
-LV_IMG_DECLARE(_pngegg5g_alpha_33x35);
 LV_IMG_DECLARE(_clouddone1_transparent_alpha_47x41);
-LV_IMG_DECLARE(_personal_bgr_battery_alpha_456x144);
-LV_IMG_DECLARE(_arrow_to_right_wo_bg_alpha_113x78);
 LV_IMG_DECLARE(_Car_Unplugged_alpha_1280x800);
 LV_IMG_DECLARE(_Car_plugged_alpha_1280x800);
 LV_IMG_DECLARE(_cloudofflinesharp_transparent_gray29_alpha_47x41);
 LV_IMG_DECLARE(_wifisharp_transparent_gray29_alpha_35x33);
-LV_IMG_DECLARE(_pause_sharp_transparent_alpha_55x51);
-LV_IMG_DECLARE(_play_sharp_transparent_alpha_55x51);
 LV_IMG_DECLARE(_pngwing_close_alpha_51x51);
-LV_IMG_DECLARE(_radiosharp_transparent_alpha_206x206);
 
 LV_FONT_DECLARE(lv_font_arial_30)
 LV_FONT_DECLARE(lv_font_montserratMedium_16)
@@ -170,7 +153,6 @@ LV_FONT_DECLARE(lv_font_arial_75)
 LV_FONT_DECLARE(lv_font_arial_53)
 LV_FONT_DECLARE(lv_font_arial_21)
 LV_FONT_DECLARE(lv_font_montserratMedium_40)
-LV_FONT_DECLARE(lv_font_arial_44)
 LV_FONT_DECLARE(lv_font_Alatsi_Regular_37)
 
 

@@ -16,29 +16,6 @@
 #endif
 
 
-static void screen_img_3_event_handler (lv_event_t *e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-
-	switch (code) {
-	case LV_EVENT_CLICKED:
-	{
-		lv_obj_clear_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_label_16, LV_OBJ_FLAG_HIDDEN);
-		break;
-	}
-	case LV_EVENT_LONG_PRESSED:
-	{
-		lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_add_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_add_flag(guider_ui.screen_label_16, LV_OBJ_FLAG_HIDDEN);
-		break;
-	}
-	default:
-		break;
-	}
-}
 static void screen_btn_1_event_handler (lv_event_t *e)
 {
 	lv_event_code_t code = lv_event_get_code(e);
@@ -87,37 +64,6 @@ static void screen_sw_1_event_handler (lv_event_t *e)
 		break;
 	}
 }
-static void screen_img_18_event_handler (lv_event_t *e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-
-	switch (code) {
-	case LV_EVENT_CLICKED:
-	{
-		lv_obj_add_flag(guider_ui.screen_img_18, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
-		break;
-	}
-	default:
-		break;
-	}
-}
-static void screen_img_19_event_handler (lv_event_t *e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-
-	switch (code) {
-	case LV_EVENT_CLICKED:
-	{
-		lv_obj_clear_flag(guider_ui.screen_img_18, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_add_flag(guider_ui.screen_sw_2, LV_OBJ_FLAG_CHECKABLE);
-		break;
-	}
-	default:
-		break;
-	}
-}
 static void screen_img_9_event_handler (lv_event_t *e)
 {
 	lv_event_code_t code = lv_event_get_code(e);
@@ -134,13 +80,10 @@ static void screen_img_9_event_handler (lv_event_t *e)
 }
 void events_init_screen(lv_ui *ui)
 {
-	lv_obj_add_event_cb(ui->screen_img_3, screen_img_3_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_btn_1, screen_btn_1_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_btn_2, screen_btn_2_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_handler, LV_EVENT_ALL, ui);
-	lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_event_handler, LV_EVENT_ALL, ui);
-	lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_img_9, screen_img_9_event_handler, LV_EVENT_ALL, ui);
 }
 

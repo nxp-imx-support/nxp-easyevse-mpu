@@ -141,8 +141,8 @@ void custom_init(lv_ui *ui)
     
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
-  lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
-  lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_custom_event_custom_handler, LV_EVENT_ALL, ui);
+  //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
+  //lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_custom_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
   lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(ui->screen_slider_2, screen_slider_2_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
@@ -357,7 +357,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
       //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
 
-      int result = system("ping -c 1 8.8.8.8 2>/dev/null 1>/dev/null");
+       int result = system("ping -c 1 8.8.8.8 2>/dev/null 1>/dev/null");
+
       if (result == 0) {
           printf("Internet connection is available.\n");
           lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
@@ -413,16 +414,16 @@ void get_mqtt_state_for_evse()
     sleep(2);
     retry_count++;
   }
-
   if (rc != MQTTCLIENT_SUCCESS) {
       printf("Failed to connect to broker\n");
       return;
-  }else{
+  } else {
       printf("Connected to MQTT broker ...\n");
-    // lv_label_set_text(guider_ui.pageStatic_label_1, "");
-  }  
-
-  // Introduced delay to avoid subscription lost due to Timing/race conditoin issue
+     // lv_label_set_text(guider_ui.pageStatic_label_1, "");
+  }
+  /* Introduced delay to avoid subscription lost
+     due to Timing/race conditoin issue
+   */
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS);
   printf("Subscribe totalKWattHr: %d\n", rc);
