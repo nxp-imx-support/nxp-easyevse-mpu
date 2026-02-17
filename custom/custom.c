@@ -375,7 +375,24 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       } 
       increase_battery_level();
 
-    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
+    }else if (strcmp(topic,"everest_api/ocpp/csms_status") == 0){
+      printf("Received topic: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
+      // Toggle images based on status
+      if (strcmp((char *)message->payload, "true") == 0 || strcmp((char *)message->payload, "connected") == 0) {
+          // Show img_11, hide img_16
+          lv_obj_clear_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+      } else if (strcmp((char *)message->payload, "false") == 0 || strcmp((char *)message->payload, "disconnected") == 0) {
+          // Hide img_11, show img_16
+          lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+      } else {
+          // Default: hide both or show img_16
+          lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+      }
+        
+     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
       // will uncomment with actual values
       // lv_label_set_text(guider_ui.screen_label_3, (char *)message->payload);
       // strcpy(final_energy,(char *)message->payload);
@@ -436,6 +453,9 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
   printf("Subscribe state_string: %d\n", rc);
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_api/ocpp/csms_status", QOS);
+  printf("Subscribe csms_status: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
