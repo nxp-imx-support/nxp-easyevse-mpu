@@ -61,11 +61,8 @@ extern int screen_digital_clock_1_hour_value;
 extern int screen_digital_clock_1_min_value;
 extern int screen_digital_clock_1_sec_value;
 extern char screen_digital_clock_1_meridiem[];
-<<<<<<< HEAD
-=======
 static time_t last_update_time = 0;
 static const int UPDATE_INTERVAL_SECONDS = 1;
->>>>>>> efb5d0b (IIOTSOL1-1195: Gui drag issue and apply miscellaneous updates)
 char final_energy[20];
 char hour[10];
 char minutes[10];
@@ -82,6 +79,9 @@ float totalKWattHr = 0.000f;
 int set_paused=0;
 float mqtt_power_kw = 0.0f;
 float mqtt_energy_kwh = 0.0f;
+static bool start_time_captured = false;
+static bool pause_time_captured = false;
+static bool session_end_processed = false;
 // Time calculation code end
 
 
@@ -93,6 +93,7 @@ typedef struct {
     char ampm; // 'A' for AM, 'P' for PM
 } Time;
 
+static Time pauseTime;
 // Function to convert time to total seconds
 int timeToSeconds(Time t) {
     int totalSeconds = 0;
@@ -241,7 +242,56 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           strcmp((char *)message->payload, "Finished") == 0 ||
           strcmp((char *)message->payload, "Idle") == 0
       ) {
+          
+          // Skip if already processed to prevent duplicate processing
+          if (session_end_processed) {
+              printf("\n>>> Session end already processed, skipping: %s <<<\n\n", 
+                     (char *)message->payload);
+              lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
+              MQTTClient_freeMessage(&message);
+              MQTTClient_free(topic);
+              return 1;
+          }
+          
+          // Mark as processed immediately
+          session_end_processed = true;
+          
+          printf("\n========================================\n");
+          printf("=== SESSION END: %s (PROCESSING) ===\n", (char *)message->payload);
+          printf("========================================\n");
+          
+          // Get current system time
+          time_t rawtime;
+          struct tm * timeinfo;
+          time(&rawtime);
+          timeinfo = localtime(&rawtime);
+          printf("System time NOW: %02d:%02d:%02d\n", 
+                 timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+          
+          printf("\nSession state:\n");
+          printf("  pause_time_captured = %d\n", pause_time_captured);
+          printf("  start_time_captured = %d\n", start_time_captured);
+          printf("  is_session_started = %d\n", is_session_started);
+          
+          if (pause_time_captured) {
+              printf("\nStored pauseTime:\n");
+              printf("  %02d:%02d:%02d %s\n", 
+                     pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+                     (pauseTime.ampm == 'A') ? "AM" : "PM");
+          }
+          
+          if (start_time_captured) {
+              printf("\nStored startTime:\n");
+              printf("  %02d:%02d:%02d %s\n", 
+                     startTime.hours, startTime.minutes, startTime.seconds,
+                     (startTime.ampm == 'A') ? "AM" : "PM");
+          }
+          printf("========================================\n\n");
+          
           active_session = false;
+          start_time_captured = false;  // Keep this here
+          // pause_time_captured will be reset later
+          
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
           lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
           
@@ -253,50 +303,111 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-          char string_time_out[20];
-          char diff_time[20];
-  
+              char string_time_out[20];
+              char diff_time[20];
+
+              printf("\n========================================\n");
+              printf("=== CALCULATING END TIME ===\n");
+              printf("========================================\n");
+              printf("pause_time_captured = %d\n", pause_time_captured);
+
+      // Use pause time as end time if session was paused, otherwise use current time
+      if (pause_time_captured) {
+          endTime = pauseTime;
+          printf("\n✓ Using PAUSE time as end time\n");
+          printf("  pauseTime: %02d:%02d:%02d %s\n", 
+                 pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+                 (pauseTime.ampm == 'A') ? "AM" : "PM");
+          printf("  endTime: %02d:%02d:%02d %s\n", 
+                 endTime.hours, endTime.minutes, endTime.seconds,
+                 (endTime.ampm == 'A') ? "AM" : "PM");
+      } else {
           set_screen_digital_clock_1();
           endTime.hours = atoi(hour);
           endTime.minutes = atoi(minutes);
-          endTime.seconds = atoi(seconds); 
-          endTime.ampm = strcmp(am_pm,"AM") ? 'A' : 'p';
+          endTime.seconds = atoi(seconds);
+          endTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
+          printf("\n✗ Using CURRENT time as end time\n");
+          printf("  Current: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
+          printf("  endTime: %02d:%02d:%02d %s\n", 
+                 endTime.hours, endTime.minutes, endTime.seconds,
+                 (endTime.ampm == 'A') ? "AM" : "PM");
+      }
   
-          startTimeInSeconds = timeToSeconds(startTime);
-          endTimeInSeconds = timeToSeconds(endTime);
+      // Calculate duration
+      startTimeInSeconds = timeToSeconds(startTime);
+  endTimeInSeconds = timeToSeconds(endTime);
   
-          diffInSeconds = endTimeInSeconds - startTimeInSeconds;
-          if (diffInSeconds < 0){
-            diffInSeconds +=86400;
-          }
-          diffTime = secondsToTime(diffInSeconds);
+  diffInSeconds = endTimeInSeconds - startTimeInSeconds;
+  if (diffInSeconds < 0){
+    diffInSeconds += 86400;
+  }
+  diffTime = secondsToTime(diffInSeconds);
   
-          if (diffTime.hours == 12){
-            diffTime.hours = 00;
-          }
+  if (diffTime.hours == 12){
+    diffTime.hours = 00;
+  }
+
+  printf("\nDuration calculation:\n");
+  printf("  startTime: %02d:%02d:%02d %s (%d seconds)\n", 
+         startTime.hours, startTime.minutes, startTime.seconds,
+         (startTime.ampm == 'A') ? "AM" : "PM", startTimeInSeconds);
+  printf("  endTime: %02d:%02d:%02d %s (%d seconds)\n", 
+         endTime.hours, endTime.minutes, endTime.seconds,
+         (endTime.ampm == 'A') ? "AM" : "PM", endTimeInSeconds);
+  printf("  Duration: %02d:%02d:%02d (%d seconds)\n", 
+         diffTime.hours, diffTime.minutes, diffTime.seconds, diffInSeconds);
           
-          snprintf(string_time_out, sizeof(string_time_out), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
-          snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", diffTime.hours, diffTime.minutes, diffTime.seconds);
-          lv_label_set_text(guider_ui.screen_label_30, string_time_out);
-          lv_label_set_text(guider_ui.screen_label_31, diff_time);
+  // Format end time string
+  snprintf(string_time_out, sizeof(string_time_out), "%02d:%02d:%02d %s", 
+           endTime.hours, endTime.minutes, endTime.seconds,
+           (endTime.ampm == 'A') ? "AM" : "PM");
+  snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
+           diffTime.hours, diffTime.minutes, diffTime.seconds);
+
+  printf("\nFormatted strings:\n");
+  printf("  End time (label_30): %s\n", string_time_out);
+  printf("  Duration (label_31): %s\n", diff_time);
+  printf("========================================\n\n");
+
+  lv_label_set_text(guider_ui.screen_label_30, string_time_out);
+  lv_label_set_text(guider_ui.screen_label_31, diff_time);
           if (is_session_started){
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
             battery_level = 20.0;
             totalKWattHr = 0.000;
+            mqtt_power_kw = 0.0f;
+            mqtt_energy_kwh = 0.0f;
             lv_label_set_text(guider_ui.screen_label_38, "20.0");
             lv_label_set_text(guider_ui.screen_label_19, "20.0");
             lv_label_set_text(guider_ui.screen_label_3, "0.0kWh");
             lv_label_set_text(guider_ui.screen_label_11, "--:--:--");
-            // Add dial data
-              lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-              lv_label_set_text(guider_ui.screen_label_25, "0");
-            // Add dial data
-            // lv_label_set_text(guider_ui.screen_label_28, "0.0kWh");
+            lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
+            lv_label_set_text(guider_ui.screen_label_25, "0");
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
             is_session_started = false;
+            printf("Session values reset (is_session_started was true)\n");
           }
+
+          printf("\n=== RESETTING FLAGS ===\n");
+          printf("Before reset - pause_time_captured = %d\n", pause_time_captured);
+          pause_time_captured = false;
+          printf("After reset - pause_time_captured = %d\n", pause_time_captured);
+          printf("=======================\n\n");
         // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
       }
+      // Capture pause time (handles both manual and automatic pause)
+      if (strcmp((char *)message->payload, "EVSE Paused") == 0) {
+          set_screen_digital_clock_1();
+          pauseTime.hours = atoi(hour);
+          pauseTime.minutes = atoi(minutes);
+          pauseTime.seconds = atoi(seconds);
+          pauseTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
+          pause_time_captured = true;
+          printf("Pause time captured: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
+      }
+
+      // Existing grouped condition (keep as is)
       if (
           strcmp((char *)message->payload, "Wait for Auth") == 0 ||
           strcmp((char *)message->payload, "EVSE Paused") == 0 ||
@@ -313,20 +424,37 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-          lv_label_set_text(guider_ui.screen_label_1, "Plugged in");
-          sleep(1);
-          lv_label_set_text(guider_ui.screen_label_1, "Authenticating...");
+          // lv_label_set_text(guider_ui.screen_label_1, "Plugged in");
+          // sleep(1);
+          // lv_label_set_text(guider_ui.screen_label_1, "Authenticating...");
           is_new_session = true;	
       }
-
       if (
           strcmp((char *)message->payload, "Charging") == 0
       ) {
           active_session = true;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_plugged_alpha_1280x800);
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
+          
+          // ADD THIS ENTIRE BLOCK
+          if (!start_time_captured && is_session_started) {
+              char string_time[20];
+              set_screen_digital_clock_1();
+              
+              startTime.hours = atoi(hour);
+              startTime.minutes = atoi(minutes);
+              startTime.seconds = atoi(seconds); 
+              startTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
+              
+              snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
+              
+              lv_label_set_text(guider_ui.screen_label_10, string_time);
+              lv_label_set_text(guider_ui.screen_label_29, string_time);
+              
+              start_time_captured = true;
+              printf("Start time captured at Charging state: %s\n", string_time);
+          }
       }      
-      
       if ((strcmp((char *)message->payload,"PrepareCharging") == 0) && (is_new_session)){
         lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
         lv_label_set_text(guider_ui.screen_label_1, "Authenticating...");
@@ -334,26 +462,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         set_screen_digital_clock_1();
         is_session_started = true;
         active_session = false;
-          
-        startTime.hours = atoi(hour);
-        startTime.minutes = atoi(minutes);
-        startTime.seconds = atoi(seconds); 
-        startTime.ampm = strcmp(am_pm,"AM") ? 'A' : 'p';
-        
-        snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
+        session_end_processed = false;  // ADD THIS LINE - Reset for new session
         sleep(2);
-        lv_label_set_text(guider_ui.screen_label_10, string_time);
-        
+
         // lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
-		lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
-        
-        lv_label_set_text(guider_ui.screen_label_29, string_time);
+        lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
       }
 
       if (strcmp((char *)message->payload,"Idle") == 0){
@@ -551,7 +670,52 @@ void unplug(){
   printf("Message published: %s\n", "unplug"); 
 }
 
-void pause_charging(){
+// void pause_charging(){
+//   pubmsg.payload = "pause_charging"; 
+//   pubmsg.payloadlen = (int)strlen("pause_charging"); 
+//   pubmsg.qos = QOS; 
+//   pubmsg.retained = 0;
+  
+//   MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/pause_charging", &pubmsg, NULL); 
+//   printf("Message published: %s\n", "pause_charging"); 
+//   active_session = false;
+// }
+ void pause_charging(){
+  printf("\n========================================\n");
+  printf("=== PAUSE_CHARGING CALLED ===\n");
+  printf("========================================\n");
+  
+  // Get current time BEFORE capture
+  time_t rawtime;
+  struct tm * timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  printf("System time NOW: %02d:%02d:%02d\n", 
+         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+  
+  printf("Before capture:\n");
+  printf("  pause_time_captured = %d\n", pause_time_captured);
+  if (pause_time_captured) {
+      printf("  OLD pauseTime: %02d:%02d:%02d %s\n", 
+             pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+             (pauseTime.ampm == 'A') ? "AM" : "PM");
+  }
+  
+  // Capture pause time immediately when pause is triggered
+  set_screen_digital_clock_1();
+  pauseTime.hours = atoi(hour);
+  pauseTime.minutes = atoi(minutes);
+  pauseTime.seconds = atoi(seconds);
+  pauseTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
+  pause_time_captured = true;
+  
+  printf("\nAfter capture:\n");
+  printf("  NEW pauseTime: %02d:%02d:%02d %s\n", 
+         pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+         (pauseTime.ampm == 'A') ? "AM" : "PM");
+  printf("  pause_time_captured = %d\n", pause_time_captured);
+  printf("========================================\n\n");
+  
   pubmsg.payload = "pause_charging"; 
   pubmsg.payloadlen = (int)strlen("pause_charging"); 
   pubmsg.qos = QOS; 
@@ -676,8 +840,21 @@ void increase_battery_level(){
   }else{
     // printf("\nbattery level matched\n");
     // printf("else bat state: %d",set_paused);
+    // if (set_paused == 1){
+    //   pause_charging();
+    //   printf("\nready to pause: elseIf\n");
+    //   lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
+    //   lv_label_set_text(guider_ui.screen_label_11, "00:00:00");
+    //   // Add dial data
+    //     lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
+    //     lv_label_set_text(guider_ui.screen_label_25, "0");
+    //   // Add dial data
+    //   set_paused = 0; 
+    // }
+
     if (set_paused == 1){
-      pause_charging();
+      printf("Automatic pause triggered (battery limit reached)\n");
+      pause_charging();  // This will now capture pause time inside the function
       printf("\nready to pause: elseIf\n");
       lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
       lv_label_set_text(guider_ui.screen_label_11, "00:00:00");
