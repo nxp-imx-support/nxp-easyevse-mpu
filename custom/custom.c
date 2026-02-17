@@ -60,11 +60,14 @@ MQTTClient_message pubmsg = MQTTClient_message_initializer;
 extern int screen_digital_clock_1_hour_value;
 extern int screen_digital_clock_1_min_value;
 extern int screen_digital_clock_1_sec_value;
+extern char screen_digital_clock_1_meridiem[];
 char final_energy[20];
 char hour[10];
 char minutes[10];
 char seconds[10];
 char am_pm[10];
+static time_t last_update_time = 0;
+static const int UPDATE_INTERVAL_SECONDS = 1;
 bool is_new_session=false;
 bool is_session_started=false;
 float battery_level = 20.0f;
@@ -123,12 +126,31 @@ Time startTime, endTime, diffTime;
 int startTimeInSeconds, endTimeInSeconds, diffInSeconds;
 // Time calculation code end
 
+// Add this function before custom_init()
+static void clock_update_timer_cb(lv_timer_t * timer)
+{
+    static int last_displayed_second = -1;
+    
+    // Get current system time
+    time_t rawtime;
+    struct tm * timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    
+    // Only update display when second actually changes
+    if (timeinfo->tm_sec != last_displayed_second) {
+        set_screen_digital_clock_1();
+        last_displayed_second = timeinfo->tm_sec;
+    }
+}
 
 void custom_init(lv_ui *ui)
 {
     /* Add your codes here */
   get_mqtt_state_for_evse();
   set_screen_digital_clock_1();
+
+  lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 100, NULL);
 
   // setenv("LD_LIBRARY_PATH","/usr/local/lib64",1);
   const char *location = getenv("LOCATION");
@@ -161,25 +183,46 @@ void custom_init(lv_ui *ui)
   lv_bar_set_value(guider_ui.screen_bar_1, 65, LV_ANIM_OFF);
 }
 
-
 void update_time(){
   time_t rawtime;
   struct tm * timeinfo;
 
   time(&rawtime);
   timeinfo = localtime(&rawtime);
-  strftime(hour, sizeof(hour), "%I", timeinfo);
-  strftime(minutes, sizeof(minutes), "%M", timeinfo);
-  strftime(seconds, sizeof(seconds), "%S", timeinfo);
-  strftime(am_pm, sizeof(am_pm), "%p", timeinfo);
-  printf ( "Current local time and date: %s", asctime(timeinfo) );
+  
+  // Get 24-hour format first to determine AM/PM reliably
+  int hour_24 = timeinfo->tm_hour;
+  
+  // Manually set AM/PM based on 24-hour time
+  if (hour_24 >= 12) {
+    strcpy(am_pm, "PM");
+  } else {
+    strcpy(am_pm, "AM");
+  }
+  
+  printf("DEBUG: hour_24 = %d\n", hour_24);
+  printf("DEBUG: am_pm string = '%s'\n", am_pm);
+  printf("DEBUG: am_pm[0] = '%c', am_pm[1] = '%c'\n", am_pm[0], am_pm[1]);
+  
+  // Convert to 12-hour format
+  int hour_12 = hour_24 % 12;
+  if (hour_12 == 0) hour_12 = 12; // Handle midnight and noon
+  
+  sprintf(hour, "%02d", hour_12);
+  sprintf(minutes, "%02d", timeinfo->tm_min);
+  sprintf(seconds, "%02d", timeinfo->tm_sec);
+  
+  printf("Current local time and date: %s", asctime(timeinfo));
+  printf("Time: %s:%s:%s %s (24h: %d)\n", hour, minutes, seconds, am_pm, hour_24);
 }
+
 
 void set_screen_digital_clock_1(){
   update_time();
-  screen_digital_clock_1_hour_value=atoi(hour);
-  screen_digital_clock_1_min_value=atoi(minutes);
-  screen_digital_clock_1_sec_value=atoi(seconds);
+  screen_digital_clock_1_hour_value = atoi(hour);
+  screen_digital_clock_1_min_value = atoi(minutes);
+  screen_digital_clock_1_sec_value = atoi(seconds);
+  strcpy(screen_digital_clock_1_meridiem, am_pm);
 }
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
