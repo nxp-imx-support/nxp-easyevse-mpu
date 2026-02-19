@@ -404,14 +404,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       //move to increare_batery_level 
       // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
-      //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
-
-       int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
-      //move to increare_batery_level 
       //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
       mqtt_power_kw = atof((char *)message->payload);
       printf("Received totalKw: %.2f\n", mqtt_power_kw);
-
+      //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
       // Network connectivity check and icon update
       if (result == 0) {
           printf("Internet connection is available.\n");
