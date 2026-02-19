@@ -1,5 +1,5 @@
 /*
-* Copyright 2023-2025 NXP
+* Copyright 2023-2026 NXP
 * NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be used strictly in
 * accordance with the applicable license terms. By expressly accepting such terms or by downloading, installing,
 * activating and/or otherwise using the software, you are agreeing that you have read, and that you agree to
@@ -61,6 +61,11 @@ extern int screen_digital_clock_1_hour_value;
 extern int screen_digital_clock_1_min_value;
 extern int screen_digital_clock_1_sec_value;
 extern char screen_digital_clock_1_meridiem[];
+<<<<<<< HEAD
+=======
+static time_t last_update_time = 0;
+static const int UPDATE_INTERVAL_SECONDS = 1;
+>>>>>>> efb5d0b (IIOTSOL1-1195: Gui drag issue and apply miscellaneous updates)
 char final_energy[20];
 char hour[10];
 char minutes[10];
@@ -75,8 +80,8 @@ bool active_session=false;
 int max_limit=25;
 float totalKWattHr = 0.000f;
 int set_paused=0;
-
-
+float mqtt_power_kw = 0.0f;
+float mqtt_energy_kwh = 0.0f;
 // Time calculation code end
 
 
@@ -238,7 +243,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-          lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1280x800);
+          lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
           
           // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
           lv_label_set_text(guider_ui.screen_label_10, "--:--:--");
@@ -396,12 +401,18 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       lv_label_set_text(guider_ui.screen_label_4, token);
     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
       // lv_label_set_text(guider_ui.screen_label_25, topic);
-      //move to increare_batery_level lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
+      //move to increare_batery_level 
+      // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
       //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
 
        int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
+      //move to increare_batery_level 
+      //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      mqtt_power_kw = atof((char *)message->payload);
+      printf("Received totalKw: %.2f\n", mqtt_power_kw);
 
+      // Network connectivity check and icon update
       if (result == 0) {
           printf("Internet connection is available.\n");
           lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
@@ -416,7 +427,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
           printf("Internet connection is not available.\n");
       } 
-      increase_battery_level();
+    increase_battery_level();
 
     }else if (strcmp(topic,"everest_api/ocpp/csms_status") == 0){
       printf("Received topic: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
@@ -439,6 +450,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // will uncomment with actual values
       // lv_label_set_text(guider_ui.screen_label_3, (char *)message->payload);
       // strcpy(final_energy,(char *)message->payload);
+      mqtt_energy_kwh = atof((char *)message->payload);
+      strcpy(final_energy, (char *)message->payload);
+      printf("Received totalKWattHr: %.3f\n", mqtt_energy_kwh);
+
       printf("this is blank");
       // will uncomment with actual values
       
@@ -581,12 +596,26 @@ void increase_battery_level(){
   char battery_level_to_str[50];
   char totalKWattHr_to_str[50];
   int battery_level_to_int;
+  char power_str[20];
+  int power_int;
 
   // if (battery_level > max_limit){
   //   printf("battery level match");
   //   pause_charging();
   // }
+   
+  // Get current time
+  time_t current_time = time(NULL);
   
+  // Only update if enough time has passed
+  if (difftime(current_time, last_update_time) < UPDATE_INTERVAL_SECONDS) {
+    return; // Skip this update
+  }
+  
+  // Update the last update time
+  last_update_time = current_time;
+
+
   if (active_session && (battery_level < max_limit)){
     // printf("battery level not match: If");
     set_paused = 1;
@@ -594,7 +623,14 @@ void increase_battery_level(){
     totalKWattHr += 0.0050;
     sprintf(battery_level_to_str, "%.1f", battery_level);
     
-    sprintf(totalKWattHr_to_str, "%.3f kWh", totalKWattHr);
+    // sprintf(totalKWattHr_to_str, "%.3f kWh", totalKWattHr);
+    // Use real MQTT energy data if available, otherwise use simulated
+    if (mqtt_energy_kwh > 0) {
+        sprintf(totalKWattHr_to_str, "%.3f kWh", mqtt_energy_kwh);
+    } else {
+        sprintf(totalKWattHr_to_str, "%.3f kWh", totalKWattHr);
+    }
+     
     
     lv_label_set_text(guider_ui.screen_label_1, "Charging");
     lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -609,9 +645,24 @@ void increase_battery_level(){
     lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
 
     // Add dial data
-      lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 8);
-      // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
-      lv_label_set_text(guider_ui.screen_label_25, "8");
+      // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 8);
+      // // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
+      // lv_label_set_text(guider_ui.screen_label_25, "8");
+
+     // Use real MQTT power data if available, otherwise use simulated
+     if (mqtt_power_kw > 0) {
+         power_int = (int)mqtt_power_kw;
+         sprintf(power_str, "%.0f", mqtt_power_kw);
+     } else {
+         power_int = 8;
+         sprintf(power_str, "8");
+     }
+ 
+     lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
+     lv_label_set_text(guider_ui.screen_label_25, power_str);
+     // Old hardcoded values (replaced):
+     // lv_label_set_text(guider_ui.screen_label_25, "8");
+
     // Add dial data
     
     //add estimated end time
@@ -649,7 +700,8 @@ static void screen_slider_2_event_custom_handler (lv_event_t *e)
     lv_obj_t * slider = lv_event_get_target(e);
     char buf[8];
     char publish_buffer[8];
-    lv_snprintf(buf, sizeof(buf), "%d% %", (char)lv_slider_get_value(slider));
+    // lv_snprintf(buf, sizeof(buf), "%d% %", (char)lv_slider_get_value(slider));
+    lv_snprintf(buf, sizeof(buf), "%d%%", (int)lv_slider_get_value(slider));
     max_limit = lv_slider_get_value(slider);
     lv_label_set_text(guider_ui.screen_label_34, buf);
 }
