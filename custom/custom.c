@@ -400,7 +400,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
       //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
 
-       int result = system("ping -c 1 8.8.8.8 2>/dev/null 1>/dev/null");
+       int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
 
       if (result == 0) {
           printf("Internet connection is available.\n");
