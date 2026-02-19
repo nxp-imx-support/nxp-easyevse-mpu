@@ -527,7 +527,13 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       mqtt_power_kw = atof((char *)message->payload);
       printf("Received totalKw: %.2f\n", mqtt_power_kw);
       //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
-      int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
+
+       int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
+      //move to increare_batery_level 
+      //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      mqtt_power_kw = atof((char *)message->payload);
+      printf("Received totalKw: %.2f\n", mqtt_power_kw);
+
       // Network connectivity check and icon update
       if (result == 0) {
           printf("Internet connection is available.\n");
