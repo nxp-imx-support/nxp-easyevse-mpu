@@ -424,9 +424,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-          // lv_label_set_text(guider_ui.screen_label_1, "Plugged in");
-          // sleep(1);
-          // lv_label_set_text(guider_ui.screen_label_1, "Authenticating...");
+          lv_label_set_text(guider_ui.screen_label_1, "Plugged in");
+          sleep(1);
+          lv_label_set_text(guider_ui.screen_label_1, "Wait for Auth");
           is_new_session = true;	
       }
       if (

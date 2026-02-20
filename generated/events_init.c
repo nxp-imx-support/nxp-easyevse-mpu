@@ -1,5 +1,5 @@
 /*
-* Copyright 2025 NXP
+* Copyright 2026 NXP
 * NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be used strictly in
 * accordance with the applicable license terms. By expressly accepting such terms or by downloading, installing,
 * activating and/or otherwise using the software, you are agreeing that you have read, and that you agree to
@@ -16,36 +16,6 @@
 #endif
 
 
-static void screen_btn_1_event_handler (lv_event_t *e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-
-	switch (code) {
-	case LV_EVENT_CLICKED:
-	{
-		lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_Alatsi_Regular_69, 0);
-		lv_label_set_text(guider_ui.screen_label_1, "EVSE Paused");
-		break;
-	}
-	default:
-		break;
-	}
-}
-static void screen_btn_2_event_handler (lv_event_t *e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-
-	switch (code) {
-	case LV_EVENT_CLICKED:
-	{
-		lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_Alatsi_Regular_69, 0);
-		lv_label_set_text(guider_ui.screen_label_1, "Charging");
-		break;
-	}
-	default:
-		break;
-	}
-}
 static void screen_sw_2_event_handler (lv_event_t *e)
 {
 	lv_event_code_t code = lv_event_get_code(e);
@@ -80,8 +50,6 @@ static void screen_img_9_event_handler (lv_event_t *e)
 }
 void events_init_screen(lv_ui *ui)
 {
-	lv_obj_add_event_cb(ui->screen_btn_1, screen_btn_1_event_handler, LV_EVENT_ALL, ui);
-	lv_obj_add_event_cb(ui->screen_btn_2, screen_btn_2_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_handler, LV_EVENT_ALL, ui);
 	lv_obj_add_event_cb(ui->screen_img_9, screen_img_9_event_handler, LV_EVENT_ALL, ui);

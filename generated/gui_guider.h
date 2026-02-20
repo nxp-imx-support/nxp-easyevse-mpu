@@ -1,5 +1,5 @@
 /*
-* Copyright 2025 NXP
+* Copyright 2026 NXP
 * NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be used strictly in
 * accordance with the applicable license terms. By expressly accepting such terms or by downloading, installing,
 * activating and/or otherwise using the software, you are agreeing that you have read, and that you agree to
@@ -40,16 +40,9 @@ typedef struct
 	lv_obj_t *screen_label_9;
 	lv_obj_t *screen_label_12;
 	lv_obj_t *screen_label_11;
-	lv_obj_t *screen_label_15;
 	lv_obj_t *screen_img_11;
-	lv_obj_t *screen_label_16;
 	lv_obj_t *screen_bar_1;
-	lv_obj_t *screen_label_17;
-	lv_obj_t *screen_label_21;
 	lv_obj_t *screen_sw_2;
-	lv_obj_t *screen_label_22;
-	lv_obj_t *screen_label_23;
-	lv_obj_t *screen_roller_1;
 	lv_obj_t *screen_label_18;
 	lv_obj_t *screen_label_25;
 	lv_obj_t *screen_label_26;
@@ -59,7 +52,6 @@ typedef struct
 	lv_obj_t *screen_meter_1;
 	lv_meter_indicator_t *screen_meter_1_scale_0_ndline_0;
 	lv_obj_t *screen_label_4;
-	lv_obj_t *screen_label_24;
 	lv_obj_t *screen_img_14;
 	lv_obj_t *screen_img_15;
 	lv_obj_t *screen_label_32;
@@ -74,6 +66,7 @@ typedef struct
 	lv_obj_t *screen_label_39;
 	lv_obj_t *screen_label_19;
 	lv_obj_t *screen_label_40;
+	lv_obj_t *screen_img_18;
 	lv_obj_t *screen_cont_3;
 	lv_obj_t *screen_label_14;
 	lv_obj_t *screen_img_9;
@@ -116,7 +109,7 @@ extern lv_ui guider_ui;
 
 
 void setup_scr_screen(lv_ui *ui);
-LV_IMG_DECLARE(_Car_Unplugged_0_alpha_1280x800);
+LV_IMG_DECLARE(_Car_Unplugged_0_alpha_1277x797);
 LV_IMG_DECLARE(_thermometeroutline_transparent_g_alpha_49x46);
 LV_IMG_DECLARE(_flashoutline_transparent_steel_blue_alpha_39x38);
 LV_IMG_DECLARE(_wifisharp_transparent_alpha_35x33);
@@ -126,34 +119,24 @@ LV_IMG_DECLARE(_Car_Unplugged_alpha_1280x800);
 LV_IMG_DECLARE(_Car_plugged_alpha_1280x800);
 LV_IMG_DECLARE(_cloudofflinesharp_transparent_gray29_alpha_47x41);
 LV_IMG_DECLARE(_wifisharp_transparent_gray29_alpha_35x33);
+LV_IMG_DECLARE(_Designer_Manual_Edit_alpha_210x210);
 LV_IMG_DECLARE(_pngwing_close_alpha_51x51);
 
 LV_FONT_DECLARE(lv_font_arial_30)
 LV_FONT_DECLARE(lv_font_montserratMedium_16)
-LV_FONT_DECLARE(lv_font_montserratMedium_18)
+LV_FONT_DECLARE(lv_font_arial_18)
 LV_FONT_DECLARE(lv_font_montserratMedium_12)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_69)
-LV_FONT_DECLARE(lv_font_montserratMedium_30)
 LV_FONT_DECLARE(lv_font_arial_20)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_25)
+LV_FONT_DECLARE(lv_font_arial_25)
 LV_FONT_DECLARE(lv_font_arial_40)
 LV_FONT_DECLARE(lv_font_arial_45)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_31)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_36)
-LV_FONT_DECLARE(lv_font_Acme_Regular_35)
-LV_FONT_DECLARE(lv_font_Acme_Regular_15)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_45)
-LV_FONT_DECLARE(lv_font_montserratMedium_29)
-LV_FONT_DECLARE(lv_font_montserratMedium_20)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_30)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_20)
+LV_FONT_DECLARE(lv_font_arial_12)
 LV_FONT_DECLARE(lv_font_arial_29)
 LV_FONT_DECLARE(lv_font_arial_24)
 LV_FONT_DECLARE(lv_font_arial_75)
 LV_FONT_DECLARE(lv_font_arial_53)
 LV_FONT_DECLARE(lv_font_arial_21)
-LV_FONT_DECLARE(lv_font_montserratMedium_40)
-LV_FONT_DECLARE(lv_font_Alatsi_Regular_37)
+LV_FONT_DECLARE(lv_font_arial_37)
 
 
 #ifdef __cplusplus
