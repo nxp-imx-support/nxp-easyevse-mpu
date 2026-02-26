@@ -68,8 +68,6 @@ char hour[10];
 char minutes[10];
 char seconds[10];
 char am_pm[10];
-static time_t last_update_time = 0;
-static const int UPDATE_INTERVAL_SECONDS = 1;
 bool is_new_session=false;
 bool is_session_started=false;
 float battery_level = 20.0f;
