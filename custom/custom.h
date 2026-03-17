@@ -36,7 +36,7 @@ void get_current_time();
 void update_time();
 void increase_battery_level();
 void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, size_t iface_size);
-
+void get_network_type(const char *interface_name, char *type_buffer, size_t buffer_size);
 
 
 #ifdef __cplusplus

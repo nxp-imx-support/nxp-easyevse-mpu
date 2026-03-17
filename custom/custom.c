@@ -31,7 +31,8 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
-
+#include <sys/ioctl.h>
+#include <linux/wireless.h>
 
 
 
@@ -223,20 +224,92 @@ void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, s
     }
 }
 
-// Timer callback to update IP address periodically
-static void ip_update_timer_cb(lv_timer_t * timer)
+
+// Timer callback to update IP address and network type periodically
+static void network_status_timer_cb(lv_timer_t * timer)
 {
     char ip_address[32];
     char interface_name[16];
+    char network_type[16];
     
     // Re-check IP address
     get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
     
-    // Update label
-    lv_label_set_text(guider_ui.screen_label_41, ip_address);
+    // Re-check network type
+    get_network_type(interface_name, network_type, sizeof(network_type));
     
-    printf("IP address updated: %s (interface: %s)\n", ip_address, interface_name);
+    // Update both labels
+    lv_label_set_text(guider_ui.screen_label_41, ip_address);
+    lv_label_set_text(guider_ui.screen_label_45, network_type);
+    
+    printf("Network status updated - IP: %s, Type: %s\n", ip_address, network_type);
 }
+
+// Function to detect network type (Ethernet or WiFi)
+void get_network_type(const char *interface_name, char *type_buffer, size_t buffer_size) {
+    int sock;
+    struct iwreq wrq;
+    struct ifreq ifr;
+    
+    // Default to Unknown
+    snprintf(type_buffer, buffer_size, "Unknown");
+    
+    printf("=== Network Type Detection ===\n");
+    printf("Interface name: %s\n", interface_name);
+    
+    // Skip if no interface name
+    if (strcmp(interface_name, "none") == 0) {
+        printf("No interface found\n");
+        return;
+    }
+    
+    // Create a socket
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        printf("Error creating socket for network type detection\n");
+        return;
+    }
+    
+    // Check if interface is UP and RUNNING
+    memset(&ifr, 0, sizeof(struct ifreq));
+    strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+    
+    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
+        printf("Error getting interface flags for %s\n", interface_name);
+        close(sock);
+        return;
+    }
+    
+    printf("Interface flags: 0x%x\n", ifr.ifr_flags);
+    printf("IFF_UP: %d\n", !!(ifr.ifr_flags & IFF_UP));
+    printf("IFF_RUNNING: %d\n", !!(ifr.ifr_flags & IFF_RUNNING));
+    
+    // Check if interface is UP and RUNNING (has active connection)
+    if (!(ifr.ifr_flags & IFF_UP) || !(ifr.ifr_flags & IFF_RUNNING)) {
+        printf("Interface %s is not active (no network connection)\n", interface_name);
+        snprintf(type_buffer, buffer_size, "Unknown");
+        close(sock);
+        return;
+    }
+    
+    // Try to get wireless info
+    memset(&wrq, 0, sizeof(struct iwreq));
+    strncpy(wrq.ifr_name, interface_name, IFNAMSIZ - 1);
+    
+    // If ioctl succeeds, it's a wireless interface
+    if (ioctl(sock, SIOCGIWNAME, &wrq) >= 0) {
+        snprintf(type_buffer, buffer_size, "Wi-Fi");
+        printf("Interface %s is Wi-Fi (active)\n", interface_name);
+    } else {
+        // Not wireless, it's wired/ethernet
+        snprintf(type_buffer, buffer_size, "Wired");
+        printf("Interface %s is Wired/Ethernet (active)\n", interface_name);
+    }
+    
+    close(sock);
+    printf("=== End Detection ===\n");
+}
+
 
 void custom_init(lv_ui *ui)
 {
@@ -276,16 +349,22 @@ void custom_init(lv_ui *ui)
   // Update Progress value
   lv_bar_set_value(guider_ui.screen_bar_1, 65, LV_ANIM_OFF);
   
-  // Add IP address display for label_41
-  char ip_address[32];
-  char interface_name[16];
-  
-  get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
-  lv_label_set_text(guider_ui.screen_label_41, ip_address);
-  printf("Machine IP set to label_41: %s\n", ip_address);
-  
-  // Create timer to update IP address every 5 seconds
-  lv_timer_t * ip_timer = lv_timer_create(ip_update_timer_cb, 5000, NULL);
+  // Add IP address display for label_41 and network type for label_45
+    char ip_address[32];
+    char interface_name[16];
+    char network_type[16];
+    
+    get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
+    lv_label_set_text(guider_ui.screen_label_41, ip_address);
+    printf("Machine IP set to label_41: %s\n", ip_address);
+    
+    // Get and display network type
+    get_network_type(interface_name, network_type, sizeof(network_type));
+    lv_label_set_text(guider_ui.screen_label_45, network_type);
+    printf("Network type set to label_45: %s\n", network_type);
+    
+    // Create timer to check network status every 5 seconds
+    lv_timer_t * network_timer = lv_timer_create(network_status_timer_cb, 5000, NULL);
 }
 void update_time(){
   time_t rawtime;
