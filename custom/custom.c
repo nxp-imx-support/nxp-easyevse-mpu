@@ -24,6 +24,14 @@
 #include "gui_guider.h"
 #include "events_init.h"
 #include "widgets_init.h"
+// Add these includes at the top if not already present
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+
 
 
 
@@ -148,6 +156,88 @@ static void clock_update_timer_cb(lv_timer_t * timer)
     }
 }
 
+// Function to get machine IP address from eth1, fallback to other interfaces
+void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, size_t iface_size) {
+    struct ifaddrs *ifaddr, *ifa;
+    int family;
+    char temp_ip[16];
+    bool ip_found = false;
+    
+    // Default values if IP not found
+    snprintf(ip_buffer, buffer_size, "(No IP)");
+    snprintf(interface_name, iface_size, "none");
+    
+    if (getifaddrs(&ifaddr) == -1) {
+        printf("Error getting IP address\n");
+        return;
+    }
+    
+    // First pass: Try to find eth1
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+        
+        family = ifa->ifa_addr->sa_family;
+        
+        // Check for IPv4 address specifically on eth1
+        if (family == AF_INET && strcmp(ifa->ifa_name, "eth1") == 0) {
+            struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
+            inet_ntop(AF_INET, &addr->sin_addr, temp_ip, sizeof(temp_ip));
+            snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
+            strncpy(interface_name, ifa->ifa_name, iface_size - 1);
+            interface_name[iface_size - 1] = '\0';
+            printf("Found IP address: (%s) on interface: %s\n", temp_ip, ifa->ifa_name);
+            ip_found = true;
+            break;  // Found eth1, stop searching
+        }
+    }
+    
+    // Second pass: If eth1 not found, try other interfaces (skip loopback)
+    if (!ip_found) {
+        printf("eth1 not found, trying other interfaces...\n");
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr == NULL)
+                continue;
+            
+            family = ifa->ifa_addr->sa_family;
+            
+            // Check for IPv4 address on any interface except loopback
+            if (family == AF_INET && strcmp(ifa->ifa_name, "lo") != 0) {
+                struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
+                inet_ntop(AF_INET, &addr->sin_addr, temp_ip, sizeof(temp_ip));
+                snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
+                strncpy(interface_name, ifa->ifa_name, iface_size - 1);
+                interface_name[iface_size - 1] = '\0';
+                printf("Found IP address: (%s) on interface: %s (fallback)\n", temp_ip, ifa->ifa_name);
+                ip_found = true;
+                break;  // Found alternative interface, stop searching
+            }
+        }
+    }
+    
+    freeifaddrs(ifaddr);
+    
+    // Log final status
+    if (!ip_found) {
+        printf("Warning: No IP address found on any interface\n");
+    }
+}
+
+// Timer callback to update IP address periodically
+static void ip_update_timer_cb(lv_timer_t * timer)
+{
+    char ip_address[32];
+    char interface_name[16];
+    
+    // Re-check IP address
+    get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
+    
+    // Update label
+    lv_label_set_text(guider_ui.screen_label_41, ip_address);
+    
+    printf("IP address updated: %s (interface: %s)\n", ip_address, interface_name);
+}
+
 void custom_init(lv_ui *ui)
 {
     /* Add your codes here */
@@ -185,8 +275,18 @@ void custom_init(lv_ui *ui)
   
   // Update Progress value
   lv_bar_set_value(guider_ui.screen_bar_1, 65, LV_ANIM_OFF);
+  
+  // Add IP address display for label_41
+  char ip_address[32];
+  char interface_name[16];
+  
+  get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
+  lv_label_set_text(guider_ui.screen_label_41, ip_address);
+  printf("Machine IP set to label_41: %s\n", ip_address);
+  
+  // Create timer to update IP address every 5 seconds
+  lv_timer_t * ip_timer = lv_timer_create(ip_update_timer_cb, 5000, NULL);
 }
-
 void update_time(){
   time_t rawtime;
   struct tm * timeinfo;
