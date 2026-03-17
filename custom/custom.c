@@ -91,6 +91,11 @@ static bool pause_time_captured = false;
 static bool session_end_processed = false;
 // Time calculation code end
 
+// Add these global variables at the top
+static time_t last_mqtt_message_time = 0;
+static const int MQTT_TIMEOUT_SECONDS = 2;  // Show overlay if no MQTT for 2+ seconds
+
+
 
 // Structure to represent time
 typedef struct {
@@ -311,6 +316,20 @@ void get_network_type(const char *interface_name, char *type_buffer, size_t buff
 }
 
 
+// Timer callback to check MQTT activity
+static void mqtt_watchdog_timer_cb(lv_timer_t * timer)
+{
+    time_t current_time = time(NULL);
+    
+    // If no MQTT message received for MQTT_TIMEOUT_SECONDS, show cont_4
+    if (last_mqtt_message_time > 0 && 
+        difftime(current_time, last_mqtt_message_time) > MQTT_TIMEOUT_SECONDS) {
+        lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+        printf("MQTT timeout - showing cont_4 overlay (EVerest not running)\n");
+    }
+}
+
+
 void custom_init(lv_ui *ui)
 {
     /* Add your codes here */
@@ -318,6 +337,12 @@ void custom_init(lv_ui *ui)
   set_screen_digital_clock_1();
 
   lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 100, NULL);
+
+  // Show cont_4 overlay by default (waiting for EVerest/MQTT)
+  lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+
+  // Create watchdog timer to check MQTT activity every 1 second
+  lv_timer_t * mqtt_watchdog = lv_timer_create(mqtt_watchdog_timer_cb, 1000, NULL);
 
   // setenv("LD_LIBRARY_PATH","/usr/local/lib64",1);
   const char *location = getenv("LOCATION");
@@ -410,6 +435,13 @@ void set_screen_digital_clock_1(){
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
     printf("Received: %s -> %.*s\n", topic, message->payloadlen, (char *)message->payload);
+
+    // Update last message time
+    last_mqtt_message_time = time(NULL);
+    
+    // Hide cont_4 when MQTT messages are coming (EVerest is running)
+    lv_obj_add_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+    
     if (strcmp(topic,"everest_external/nodered/1/state/state_string") == 0){
        lv_label_set_text(guider_ui.screen_label_1, (char *)message->payload);
        lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
