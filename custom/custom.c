@@ -86,6 +86,7 @@ float totalKWattHr = 0.000f;
 int set_paused=0;
 float mqtt_power_kw = 0.0f;
 float mqtt_energy_kwh = 0.0f;
+float mqtt_battery_level = -1.0f;  // -1 means no MQTT data available
 static bool start_time_captured = false;
 static bool pause_time_captured = false;
 static bool session_end_processed = false;
@@ -822,6 +823,16 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
           printf("EV ID: NA (empty payload)\n");
       }
+    
+    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
+      // Store MQTT battery level
+      if (message->payloadlen > 0 && message->payload != NULL) {
+          mqtt_battery_level = atof((char *)message->payload);
+          printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
+      } else {
+          mqtt_battery_level = -1.0f;  // Reset to no data
+          printf("Battery Level: No data (empty payload)\n");
+      }
     }
   
     MQTTClient_freeMessage(&message);
@@ -886,6 +897,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/ev_id", QOS);
   printf("Subscribe ev_id: %d\n", rc);
+  // ADD THIS FOR BATTERY LEVEL
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/battery_level", QOS);
+  printf("Subscribe battery_level: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
@@ -1008,7 +1023,6 @@ static void screen_slider_1_event_custom_handler (lv_event_t *e)
     MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/set_max_current", &pubmsg, NULL); 
     printf("Message published: %s\n", publish_buffer);
 }
-
 void increase_battery_level(){
   char battery_level_to_str[50];
   char totalKWattHr_to_str[50];
@@ -1016,11 +1030,6 @@ void increase_battery_level(){
   char power_str[20];
   int power_int;
 
-  // if (battery_level > max_limit){
-  //   printf("battery level match");
-  //   pause_charging();
-  // }
-   
   // Get current time
   time_t current_time = time(NULL);
   
@@ -1034,13 +1043,20 @@ void increase_battery_level(){
 
 
   if (active_session && (battery_level < max_limit)){
-    // printf("battery level not match: If");
     set_paused = 1;
-    battery_level += 0.1;
+    
+    // Use MQTT data if available, otherwise simulate
+    if (mqtt_battery_level >= 0.0f) {
+        // Use MQTT battery level
+        battery_level = mqtt_battery_level;
+    } else {
+        // Simulate battery increase (existing logic)
+        battery_level += 0.1;
+    }
+    
     totalKWattHr += 0.0050;
     sprintf(battery_level_to_str, "%.1f", battery_level);
     
-    // sprintf(totalKWattHr_to_str, "%.3f kWh", totalKWattHr);
     // Use real MQTT energy data if available, otherwise use simulated
     if (mqtt_energy_kwh > 0) {
         sprintf(totalKWattHr_to_str, "%.3f kWh", mqtt_energy_kwh);
@@ -1061,27 +1077,18 @@ void increase_battery_level(){
     
     lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
 
-    // Add dial data
-      // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 8);
-      // // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
-      // lv_label_set_text(guider_ui.screen_label_25, "8");
-
-     // Use real MQTT power data if available, otherwise use simulated
-     if (mqtt_power_kw > 0) {
-         power_int = (int)mqtt_power_kw;
-         sprintf(power_str, "%.0f", mqtt_power_kw);
-     } else {
-         power_int = 8;
-         sprintf(power_str, "8");
-     }
+      // Use real MQTT power data if available, otherwise use simulated
+      if (mqtt_power_kw > 0) {
+          power_int = (int)mqtt_power_kw;
+          sprintf(power_str, "%.0f", mqtt_power_kw);
+      } else {
+          power_int = 8;
+          sprintf(power_str, "8");
+      }
  
-     lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
-     lv_label_set_text(guider_ui.screen_label_25, power_str);
-     // Old hardcoded values (replaced):
-     // lv_label_set_text(guider_ui.screen_label_25, "8");
+      lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
+      lv_label_set_text(guider_ui.screen_label_25, power_str);
 
-    // Add dial data
-    
     //add estimated end time
     float remaining_charge;
     remaining_charge = max_limit - battery_level;
@@ -1092,21 +1099,7 @@ void increase_battery_level(){
     snprintf(diff_time, sizeof(diff_time), "00:%02d:%02d", diffTime.minutes, diffTime.seconds);
     lv_label_set_text(guider_ui.screen_label_11, diff_time);
     //add estimated end time
-    // printf("If bat state: %d",set_paused);
   }else{
-    // printf("\nbattery level matched\n");
-    // printf("else bat state: %d",set_paused);
-    // if (set_paused == 1){
-    //   pause_charging();
-    //   printf("\nready to pause: elseIf\n");
-    //   lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-    //   lv_label_set_text(guider_ui.screen_label_11, "00:00:00");
-    //   // Add dial data
-    //     lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-    //     lv_label_set_text(guider_ui.screen_label_25, "0");
-    //   // Add dial data
-    //   set_paused = 0; 
-    // }
 
     if (set_paused == 1){
       printf("Automatic pause triggered (battery limit reached)\n");
@@ -1123,7 +1116,6 @@ void increase_battery_level(){
   }
 
 }
-
 
 static void screen_slider_2_event_custom_handler (lv_event_t *e)
 {
