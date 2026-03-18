@@ -1259,7 +1259,7 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_13 = lv_label_create(ui->screen);
 	lv_label_set_text(ui->screen_label_13, "!");
 	lv_label_set_long_mode(ui->screen_label_13, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_13, 1041, 17);
+	lv_obj_set_pos(ui->screen_label_13, 1035, 17);
 	lv_obj_set_size(ui->screen_label_13, 17, 32);
 	lv_obj_add_flag(ui->screen_label_13, LV_OBJ_FLAG_HIDDEN);
 
