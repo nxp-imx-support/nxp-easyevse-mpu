@@ -351,8 +351,13 @@ void custom_init(lv_ui *ui)
     lv_label_set_text(guider_ui.screen_label_7, (char *)location);
   }else{
     lv_label_set_text(guider_ui.screen_label_7, "NXP Plot 1");
-  }     
-    
+  } 
+  
+  // ADD THIS INITIALIZATION FOR EVSE ID
+  // Initialize EVSE ID label with default "NA"
+  lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+  printf("EVSE ID initialized to 'EVSE ID: NA'\n");;
+
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
   //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -788,6 +793,18 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       printf("this is blank");
       // will uncomment with actual values
       
+    } else if (strcmp(topic, "everest_external/nodered/1/evse/evse_id") == 0) {
+      char evse_id_display[128];
+      
+      // Check if payload is empty or null
+      if (message->payloadlen > 0 && message->payload != NULL) {
+          snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", (char *)message->payload);
+          lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
+          printf("EVSE ID: %s\n", (char *)message->payload);
+      } else {
+          lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+          printf("EVSE ID: NA (empty payload)\n");
+      }
     }
   
     MQTTClient_freeMessage(&message);
@@ -845,6 +862,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_api/ocpp/csms_status", QOS);
   printf("Subscribe csms_status: %d\n", rc);
+  // ADD THIS FOR EVSE ID
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/evse/evse_id", QOS);
+  printf("Subscribe evse_id: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
