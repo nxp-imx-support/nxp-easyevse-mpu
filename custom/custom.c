@@ -7,10 +7,9 @@
 * terms, then you may not retain, install, activate or otherwise use the software.
 */
 
-
 /*********************
- *      INCLUDES
- *********************/
+  *      INCLUDES
+  *********************/
 #include <stdio.h>
 #include <time.h>
 #include <stdbool.h>
@@ -24,6 +23,7 @@
 #include "gui_guider.h"
 #include "events_init.h"
 #include "widgets_init.h"
+#include <ctype.h>
 // Add these includes at the top if not already present
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,7 +33,6 @@
 #include <ifaddrs.h>
 #include <sys/ioctl.h>
 #include <linux/wireless.h>
-
 
 
 /*********************
@@ -363,6 +362,10 @@ void custom_init(lv_ui *ui)
   // Initialize EV ID label with formatted default
   lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
   printf("EV ID initialized to 'EV ID: NA'\n");
+
+  // ADD THIS - Initialize ISO 15118 Mode label
+  lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+  printf("ISO 15118 Mode initialized to: ISO Mode: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -822,22 +825,42 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       } else {
           lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
           printf("EV ID: NA (empty payload)\n");
-      }
-    
-    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
-      // Store MQTT battery level
-      if (message->payloadlen > 0 && message->payload != NULL) {
-          mqtt_battery_level = atof((char *)message->payload);
-          printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
-      } else {
-          mqtt_battery_level = -1.0f;  // Reset to no data
-          printf("Battery Level: No data (empty payload)\n");
-      }
     }
+    
+  } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
+    // Store MQTT battery level
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        mqtt_battery_level = atof((char *)message->payload);
+        printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
+    } else {
+        mqtt_battery_level = -1.0f;  // Reset to no data
+        printf("Battery Level: No data (empty payload)\n");
+    }
+    
+  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/mode") == 0) {
+    char iso_mode_display[32];
+      
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char mode = ((char *)message->payload)[0];  // Get first character (A, B, C, D, E, or F)
+          
+        // Validate mode is A-F
+        if ((mode >= 'A' && mode <= 'F') || (mode >= 'a' && mode <= 'f')) {
+            snprintf(iso_mode_display, sizeof(iso_mode_display), "ISO Mode: %c", toupper(mode));
+            lv_label_set_text(guider_ui.screen_label_52, iso_mode_display);
+            printf("ISO 15118 Mode: %c\n", toupper(mode));
+        } else {
+            lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+            printf("ISO 15118 Mode: Invalid mode '%s'\n", (char *)message->payload);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+        printf("ISO 15118 Mode: NA (empty payload)\n");
+    }
+  }
   
-    MQTTClient_freeMessage(&message);
-    MQTTClient_free(topic);
-    return 1;
+  MQTTClient_freeMessage(&message);
+  MQTTClient_free(topic);
+  return 1;
 }
 void get_mqtt_state_for_evse()
 {
@@ -901,6 +924,11 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/battery_level", QOS);
   printf("Subscribe battery_level: %d\n", rc);
+
+  // ADD THIS FOR ISO 15118 MODE
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/mode", QOS);
+  printf("Subscribe iso15118_mode: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
