@@ -367,9 +367,13 @@ void custom_init(lv_ui *ui)
   lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
   printf("ISO 15118 Mode initialized to: ISO Mode: NA\n");
   
-  // ADD THIS - Initialize ISO 15118 Protocol label
+  // Initialize ISO 15118 Protocol label
   lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
   printf("ISO 15118 Protocol initialized to: Protocol: NA\n");
+  
+  // Initialize ISO 15118 Voltage label
+  lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+  printf("ISO 15118 Voltage initialized to: Voltage: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -904,6 +908,34 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
         printf("ISO 15118 Protocol: NA (empty payload)\n");
     }
+    
+  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/voltage") == 0) {
+    char voltage_display[32];
+      
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        float voltage = atof((char *)message->payload);
+          
+        // Validate voltage range (0-1000V typical for EV charging)
+        if (voltage >= 0.0f && voltage <= 1000.0f) {
+            // Check if voltage is a whole number
+            if (voltage == (int)voltage) {
+                // Display as integer (e.g., "Voltage: 400 V")
+                snprintf(voltage_display, sizeof(voltage_display), "Voltage: %d V", (int)voltage);
+            } else {
+                // Display with 1 decimal place (e.g., "Voltage: 400.5 V")
+                snprintf(voltage_display, sizeof(voltage_display), "Voltage: %.1f V", voltage);
+            }
+            lv_label_set_text(guider_ui.screen_label_54, voltage_display);
+            printf("ISO 15118 Voltage: %.1f V\n", voltage);
+        } else {
+            // Out of range
+            lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+            printf("ISO 15118 Voltage: Out of range (%.1f V)\n", voltage);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+        printf("ISO 15118 Voltage: NA (empty payload)\n");
+    }
   }
   
   MQTTClient_freeMessage(&message);
@@ -976,11 +1008,14 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/mode", QOS);
   printf("Subscribe iso15118_mode: %d\n", rc);
-
   // ADD THIS FOR ISO 15118 PROTOCOL
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/protocol", QOS);
   printf("Subscribe iso15118_protocol: %d\n", rc);
+  // ADD THIS FOR ISO 15118 VOLTAGE
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
+  printf("Subscribe iso15118_voltage: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
