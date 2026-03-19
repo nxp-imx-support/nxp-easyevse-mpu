@@ -374,6 +374,10 @@ void custom_init(lv_ui *ui)
   // Initialize ISO 15118 Voltage label
   lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
   printf("ISO 15118 Voltage initialized to: Voltage: NA\n");
+  
+  // Initialize ISO 15118 Charging Direction label
+  lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+  printf("ISO 15118 Direction initialized to: Direction: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -908,7 +912,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
         printf("ISO 15118 Protocol: NA (empty payload)\n");
     }
-    
   } else if (strcmp(topic, "everest_external/nodered/1/iso15118/voltage") == 0) {
     char voltage_display[32];
       
@@ -935,6 +938,44 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     } else {
         lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
         printf("ISO 15118 Voltage: NA (empty payload)\n");
+    }
+  
+  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
+    char direction_display[32];
+      
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char *direction = (char *)message->payload;
+          
+        // Check for G2V (Grid to Vehicle - Charging)
+        if (strcasecmp(direction, "G2V") == 0 ||
+            strcasecmp(direction, "Grid2Vehicle") == 0 ||
+            strcasecmp(direction, "GridToVehicle") == 0 ||
+            strcasecmp(direction, "Grid to Vehicle") == 0 ||
+            strstr(direction, "G2V") != NULL ||
+            strstr(direction, "g2v") != NULL) {
+            snprintf(direction_display, sizeof(direction_display), "Direction: G2V");
+            lv_label_set_text(guider_ui.screen_label_55, direction_display);
+            printf("ISO 15118 Direction: G2V (Grid to Vehicle - Charging)\n");
+        }
+        // Check for V2G (Vehicle to Grid - Discharging)
+        else if (strcasecmp(direction, "V2G") == 0 ||
+                      strcasecmp(direction, "Vehicle2Grid") == 0 ||
+                      strcasecmp(direction, "VehicleToGrid") == 0 ||
+                      strcasecmp(direction, "Vehicle to Grid") == 0 ||
+                      strstr(direction, "V2G") != NULL ||
+                      strstr(direction, "v2g") != NULL) {
+            snprintf(direction_display, sizeof(direction_display), "Direction: V2G");
+            lv_label_set_text(guider_ui.screen_label_55, direction_display);
+            printf("ISO 15118 Direction: V2G (Vehicle to Grid - Discharging)\n");
+        }
+        // Unknown or invalid direction
+        else {
+            lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+            printf("ISO 15118 Direction: Unknown (%s)\n", direction);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+        printf("ISO 15118 Direction: NA (empty payload)\n");
     }
   }
   
@@ -1016,6 +1057,11 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
   printf("Subscribe iso15118_voltage: %d\n", rc);
+
+  // ADD THIS FOR ISO 15118 CHARGING DIRECTION
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/direction", QOS);
+  printf("Subscribe iso15118_direction: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
