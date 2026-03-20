@@ -386,9 +386,14 @@ void custom_init(lv_ui *ui)
   lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
   printf("NFC Card UID initialized to: UID: NA\n");
 
-  // ADD THIS - Initialize NFC Card Type label
+  // Initialize NFC Card Type label
   lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
   printf("NFC Card Type initialized to: Type: NA\n");
+
+  // Initialize NFC Card Status label
+  lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+  lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+  printf("NFC Card Status initialized to: Status: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -1176,6 +1181,58 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
         printf("NFC Card Type: NA (empty payload)\n");
     }
+  // ADD THIS HANDLER FOR NFC CARD STATUS
+  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_status") == 0) {
+    char status_display[32];
+    
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char *card_status = (char *)message->payload;
+        
+        // Check for Accepted/Authorized
+        if (strcasestr(card_status, "Accepted") != NULL ||
+            strcasestr(card_status, "Authorized") != NULL ||
+            strcasestr(card_status, "Approved") != NULL ||
+            strcasestr(card_status, "Valid") != NULL ||
+            strcasestr(card_status, "OK") != NULL ||
+            strcasestr(card_status, "Success") != NULL ||
+            strcasecmp(card_status, "1") == 0 ||
+            strcasecmp(card_status, "true") == 0) {
+            snprintf(status_display, sizeof(status_display), "Status: Accepted");
+            lv_label_set_text(guider_ui.screen_label_59, status_display);
+            // Set text color to green (0x00FF00 or similar)
+            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
+            printf("NFC Card Status: Accepted (green)\n");
+        }
+        // Check for Rejected/Denied
+        else if (strcasestr(card_status, "Rejected") != NULL ||
+                  strcasestr(card_status, "Denied") != NULL ||
+                  strcasestr(card_status, "Unauthorized") != NULL ||
+                  strcasestr(card_status, "Invalid") != NULL ||
+                  strcasestr(card_status, "Blocked") != NULL ||
+                  strcasestr(card_status, "Failed") != NULL ||
+                  strcasestr(card_status, "Error") != NULL ||
+                  strcasecmp(card_status, "0") == 0 ||
+                  strcasecmp(card_status, "false") == 0) {
+            snprintf(status_display, sizeof(status_display), "Status: Rejected");
+            lv_label_set_text(guider_ui.screen_label_59, status_display);
+            // Set text color to red (0xFF0000)
+            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
+            printf("NFC Card Status: Rejected (red)\n");
+        }
+        // Unknown or invalid status
+        else {
+            lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+            // Set text color to gray/white (0xDCD1E5 - same as default)
+            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+            printf("NFC Card Status: Unknown (%s)\n", card_status);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+        // Set text color to gray/white (default)
+        lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+        printf("NFC Card Status: NA (empty payload)\n");
+    }
+
   }
   
   MQTTClient_freeMessage(&message);
@@ -1272,6 +1329,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_type", QOS);
   printf("Subscribe nfc_card_type: %d\n", rc);
+  // ADD THIS FOR NFC CARD STATUS
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_status", QOS);
+  printf("Subscribe nfc_card_status: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
