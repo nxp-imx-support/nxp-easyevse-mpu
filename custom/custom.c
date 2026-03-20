@@ -378,6 +378,10 @@ void custom_init(lv_ui *ui)
   // Initialize ISO 15118 Charging Direction label
   lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
   printf("ISO 15118 Direction initialized to: Direction: NA\n");
+  
+  // Initialize Sigboard Connection Type label
+  lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+  printf("Sigboard Connection initialized to: Sigboard: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -977,6 +981,46 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
         printf("ISO 15118 Direction: NA (empty payload)\n");
     }
+  
+  } else if (strcmp(topic, "everest_external/nodered/1/sigboard/connection_type") == 0) {
+    char connection_display[32];
+      
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char *connection = (char *)message->payload;
+          
+        if (strcasecmp(connection, "Serial") == 0 ||
+                 strcasecmp(connection, "UART") == 0 ||
+                 strstr(connection, "serial") != NULL ||
+                 strstr(connection, "uart") != NULL) {
+            snprintf(connection_display, sizeof(connection_display), "Sigboard: Serial");
+            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            printf("Sigboard Connection: Serial/UART\n");
+        }
+        // Check for I2C
+        else if (strcasecmp(connection, "I2C") == 0 ||
+                 strstr(connection, "i2c") != NULL ||
+                 strstr(connection, "I2C") != NULL) {
+            snprintf(connection_display, sizeof(connection_display), "Sigboard: I2C");
+            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            printf("Sigboard Connection: I2C\n");
+        }
+        // Check for SPI
+        else if (strcasecmp(connection, "SPI") == 0 ||
+                 strstr(connection, "spi") != NULL ||
+                 strstr(connection, "SPI") != NULL) {
+            snprintf(connection_display, sizeof(connection_display), "Sigboard: SPI");
+            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            printf("Sigboard Connection: SPI\n");
+        }
+        // Unknown or invalid connection type
+        else {
+            lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+            printf("Sigboard Connection: Unknown (%s)\n", connection);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+        printf("Sigboard Connection: NA (empty payload)\n");
+    }
   }
   
   MQTTClient_freeMessage(&message);
@@ -1057,11 +1101,14 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
   printf("Subscribe iso15118_voltage: %d\n", rc);
-
   // ADD THIS FOR ISO 15118 CHARGING DIRECTION
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/direction", QOS);
   printf("Subscribe iso15118_direction: %d\n", rc);
+  // ADD THIS FOR SIGBOARD CONNECTION TYPE
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/sigboard/connection_type", QOS);
+  printf("Subscribe sigboard_connection_type: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
