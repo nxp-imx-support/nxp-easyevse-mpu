@@ -385,7 +385,10 @@ void custom_init(lv_ui *ui)
   // Initialize NFC Card UID label
   lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
   printf("NFC Card UID initialized to: UID: NA\n");
-  printf("NFC Card UID initialized to: UID: NA\n");
+
+  // ADD THIS - Initialize NFC Card Type label
+  lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+  printf("NFC Card Type initialized to: Type: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -1074,6 +1077,104 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     } else {
         lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
         printf("NFC Card UID: NA (empty payload)\n");
+    }    
+  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_type") == 0) {
+    char type_display[64];
+    
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char *card_type = (char *)message->payload;
+        
+        // Check for MIFARE Classic
+        if (strcasestr(card_type, "MIFARE Classic") != NULL ||
+            strcasestr(card_type, "MIFAREClassic") != NULL ||
+            strcasestr(card_type, "MIFARE_Classic") != NULL ||
+            strcasestr(card_type, "MFC") != NULL ||
+            strcasestr(card_type, "Classic") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: MIFARE Classic");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: MIFARE Classic\n");
+        }
+        // Check for MIFARE Ultralight
+        else if (strcasestr(card_type, "MIFARE Ultralight") != NULL ||
+                  strcasestr(card_type, "MIFAREUltralight") != NULL ||
+                  strcasestr(card_type, "MIFARE_Ultralight") != NULL ||
+                  strcasestr(card_type, "MFU") != NULL ||
+                  strcasestr(card_type, "Ultralight") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: MIFARE Ultralight");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: MIFARE Ultralight\n");
+        }
+        // Check for MIFARE DESFire
+        else if (strcasestr(card_type, "MIFARE DESFire") != NULL ||
+                  strcasestr(card_type, "MIFAREDESFire") != NULL ||
+                  strcasestr(card_type, "MIFARE_DESFire") != NULL ||
+                  strcasestr(card_type, "DESFire") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: MIFARE DESFire");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: MIFARE DESFire\n");
+        }
+        // Check for NTAG213
+        else if (strcasestr(card_type, "NTAG213") != NULL ||
+                  strcasestr(card_type, "NTAG 213") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: NTAG213");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: NTAG213\n");
+        }
+        // Check for NTAG215
+        else if (strcasestr(card_type, "NTAG215") != NULL ||
+                  strcasestr(card_type, "NTAG 215") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: NTAG215");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: NTAG215\n");
+        }
+        // Check for NTAG216
+        else if (strcasestr(card_type, "NTAG216") != NULL ||
+                  strcasestr(card_type, "NTAG 216") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: NTAG216");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: NTAG216\n");
+        }
+        // Check for generic NTAG
+        else if (strcasestr(card_type, "NTAG") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: NTAG");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: NTAG (generic)\n");
+        }
+        // Check for ISO14443A
+        else if (strcasestr(card_type, "ISO14443A") != NULL ||
+                  strcasestr(card_type, "ISO 14443A") != NULL ||
+                  strcasestr(card_type, "ISO-14443A") != NULL ||
+                  strcasestr(card_type, "14443A") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: ISO14443A");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: ISO14443A\n");
+        }
+        // Check for ISO14443B
+        else if (strcasestr(card_type, "ISO14443B") != NULL ||
+                  strcasestr(card_type, "ISO 14443B") != NULL ||
+                  strcasestr(card_type, "ISO-14443B") != NULL ||
+                  strcasestr(card_type, "14443B") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: ISO14443B");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: ISO14443B\n");
+        }
+        // Check for ISO15693
+        else if (strcasestr(card_type, "ISO15693") != NULL ||
+                  strcasestr(card_type, "ISO 15693") != NULL ||
+                  strcasestr(card_type, "ISO-15693") != NULL ||
+                  strcasestr(card_type, "15693") != NULL) {
+            snprintf(type_display, sizeof(type_display), "Type: ISO15693");
+            lv_label_set_text(guider_ui.screen_label_58, type_display);
+            printf("NFC Card Type: ISO15693\n");
+        }
+        // Unknown or invalid card type
+        else {
+            lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+            printf("NFC Card Type: Unknown (%s)\n", card_type);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+        printf("NFC Card Type: NA (empty payload)\n");
     }
   }
   
@@ -1167,6 +1268,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_uid", QOS);
   printf("Subscribe nfc_card_uid: %d\n", rc);
+  // ADD THIS FOR NFC CARD TYPE
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_type", QOS);
+  printf("Subscribe nfc_card_type: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
