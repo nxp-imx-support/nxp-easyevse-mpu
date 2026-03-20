@@ -378,10 +378,14 @@ void custom_init(lv_ui *ui)
   // Initialize ISO 15118 Charging Direction label
   lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
   printf("ISO 15118 Direction initialized to: Direction: NA\n");
-  
   // Initialize Sigboard Connection Type label
   lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
   printf("Sigboard Connection initialized to: Sigboard: NA\n");
+
+  // Initialize NFC Card UID label
+  lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+  printf("NFC Card UID initialized to: UID: NA\n");
+  printf("NFC Card UID initialized to: UID: NA\n");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -1021,6 +1025,56 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
         printf("Sigboard Connection: NA (empty payload)\n");
     }
+  
+  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_uid") == 0) {
+    char uid_display[64];
+      
+    if (message->payloadlen > 0 && message->payload != NULL) {
+        char *uid_raw = (char *)message->payload;
+        char uid_formatted[64] = {0};
+        int uid_len = strlen(uid_raw);
+          
+        // Remove any existing colons, spaces, or dashes from input
+        char uid_clean[64] = {0};
+        int clean_idx = 0;
+        for (int i = 0; i < uid_len && i < 63; i++) {
+            char c = uid_raw[i];
+            // Keep only hex characters (0-9, A-F, a-f)
+            if ((c >= '0' && c <= '9') || 
+                (c >= 'A' && c <= 'F') || 
+                (c >= 'a' && c <= 'f')) {
+                uid_clean[clean_idx++] = toupper(c);
+            }
+        }
+        uid_clean[clean_idx] = '\0';
+          
+        int clean_len = strlen(uid_clean);
+          
+        // Validate UID length (must be 8, 14, or 20 hex characters for 4, 7, or 10 bytes)
+        if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
+            // Format with colons (XX:XX:XX:XX format)
+            int formatted_idx = 0;
+            for (int i = 0; i < clean_len; i += 2) {
+                if (i > 0) {
+                    uid_formatted[formatted_idx++] = ':';
+                }
+                uid_formatted[formatted_idx++] = uid_clean[i];
+                uid_formatted[formatted_idx++] = uid_clean[i + 1];
+            }
+            uid_formatted[formatted_idx] = '\0';
+              
+            snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
+            lv_label_set_text(guider_ui.screen_label_57, uid_display);
+            printf("NFC Card UID: %s (%d bytes)\n", uid_formatted, clean_len / 2);
+        } else {
+            // Invalid UID length
+            lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+            printf("NFC Card UID: Invalid length (%d hex chars, expected 8/14/20)\n", clean_len);
+        }
+    } else {
+        lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+        printf("NFC Card UID: NA (empty payload)\n");
+    }
   }
   
   MQTTClient_freeMessage(&message);
@@ -1109,6 +1163,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/sigboard/connection_type", QOS);
   printf("Subscribe sigboard_connection_type: %d\n", rc);
+  // ADD THIS FOR NFC CARD UID
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_uid", QOS);
+  printf("Subscribe nfc_card_uid: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
