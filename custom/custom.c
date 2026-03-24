@@ -802,21 +802,34 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       } 
     increase_battery_level();
 
-    }else if (strcmp(topic,"everest_api/ocpp/csms_status") == 0){
-      printf("Received topic: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
-      // Toggle images based on status
-      if (strcmp((char *)message->payload, "true") == 0 || strcmp((char *)message->payload, "connected") == 0) {
-          // Show img_11, hide img_16
+    }else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
+      printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
+      
+      // Handle connection status values: "connected", "disconnected", "unknown"
+      if (strcmp((char *)message->payload, "connected") == 0) {
+          // CSMS connected - show green/connected icon (img_11)
           lv_obj_clear_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
-      } else if (strcmp((char *)message->payload, "false") == 0 || strcmp((char *)message->payload, "disconnected") == 0) {
-          // Hide img_11, show img_16
+          printf("CSMS Status: Connected ✓\n");
+          
+      } else if (strcmp((char *)message->payload, "disconnected") == 0) {
+          // CSMS disconnected - show red/disconnected icon (img_16)
           lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+          printf("CSMS Status: Disconnected ✗\n");
+          
+      } else if (strcmp((char *)message->payload, "unknown") == 0) {
+          // CSMS status unknown - treat as disconnected
+          lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+          printf("CSMS Status: Unknown (treated as disconnected)\n");
+          
       } else {
-          // Default: hide both or show img_16
+          // Unexpected value - default to disconnected
           lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
+          printf("CSMS Status: Unexpected '%s' (treated as disconnected)\n", 
+                 (char *)message->payload);
       }
         
      } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
@@ -1287,7 +1300,8 @@ void get_mqtt_state_for_evse()
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
   printf("Subscribe state_string: %d\n", rc);
   usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_api/ocpp/csms_status", QOS);
+  rc = MQTTClient_subscribe(client, "everest_api/ocpp/var/connection_status", QOS);
+  printf("Subscribe CSMS connection_status: %d\n", rc);
   printf("Subscribe csms_status: %d\n", rc);
   // ADD THIS FOR EVSE ID
   usleep(100000); // 100ms delay
