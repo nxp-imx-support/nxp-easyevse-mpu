@@ -142,6 +142,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_slider_set_value(ui->screen_slider_1, 16, LV_ANIM_OFF);
 	lv_obj_set_pos(ui->screen_slider_1, 24, 773);
 	lv_obj_set_size(ui->screen_slider_1, 133, 8);
+	lv_obj_add_flag(ui->screen_slider_1, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_slider_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_bg_opa(ui->screen_slider_1, 60, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -169,6 +170,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_label_set_long_mode(ui->screen_label_6, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_6, 12, 740);
 	lv_obj_set_size(ui->screen_label_6, 135, 27);
+	lv_obj_add_flag(ui->screen_label_6, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_label_6, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_6, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -735,8 +737,9 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_33 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_33, "A");
 	lv_label_set_long_mode(ui->screen_label_33, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_33, 140, 740);
+	lv_obj_set_pos(ui->screen_label_33, 140, 741);
 	lv_obj_set_size(ui->screen_label_33, 38, 24);
+	lv_obj_add_flag(ui->screen_label_33, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_label_33, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_33, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1041,8 +1044,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_43 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_43, "EVSE ID: NA");
 	lv_label_set_long_mode(ui->screen_label_43, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_43, 1000, 118);
-	lv_obj_set_size(ui->screen_label_43, 213, 39);
+	lv_obj_set_pos(ui->screen_label_43, 1021, 110);
+	lv_obj_set_size(ui->screen_label_43, 236, 39);
 
 	//Write style for screen_label_43, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_43, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1052,7 +1055,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_43, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_43, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_43, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_43, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_43, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_43, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_43, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_43, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1064,8 +1067,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_44 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_44, "EV ID: NA");
 	lv_label_set_long_mode(ui->screen_label_44, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_44, 988, 160);
-	lv_obj_set_size(ui->screen_label_44, 213, 39);
+	lv_obj_set_pos(ui->screen_label_44, 1025, 172);
+	lv_obj_set_size(ui->screen_label_44, 232, 39);
 
 	//Write style for screen_label_44, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_44, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1075,7 +1078,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_44, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_44, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_44, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_44, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_44, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_44, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_44, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_44, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1133,8 +1136,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_53 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_53, "Protocol: Basic");
 	lv_label_set_long_mode(ui->screen_label_53, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_53, 1003, 244);
-	lv_obj_set_size(ui->screen_label_53, 223, 36);
+	lv_obj_set_pos(ui->screen_label_53, 1024, 246);
+	lv_obj_set_size(ui->screen_label_53, 246, 36);
 
 	//Write style for screen_label_53, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_53, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1144,7 +1147,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_53, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_53, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_53, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_53, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_53, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_53, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_53, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_53, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1156,8 +1159,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_54 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_54, "Voltage: NA");
 	lv_label_set_long_mode(ui->screen_label_54, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_54, 1003, 278);
-	lv_obj_set_size(ui->screen_label_54, 223, 36);
+	lv_obj_set_pos(ui->screen_label_54, 1024, 282);
+	lv_obj_set_size(ui->screen_label_54, 245, 36);
 
 	//Write style for screen_label_54, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1167,7 +1170,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_54, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_54, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_54, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_54, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1179,8 +1182,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_55 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_55, "Direction: G2V");
 	lv_label_set_long_mode(ui->screen_label_55, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_55, 1003, 313);
-	lv_obj_set_size(ui->screen_label_55, 223, 36);
+	lv_obj_set_pos(ui->screen_label_55, 1024, 317);
+	lv_obj_set_size(ui->screen_label_55, 237, 36);
 
 	//Write style for screen_label_55, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_55, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1190,7 +1193,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_55, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_55, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_55, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_55, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_55, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_55, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_55, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_55, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1202,8 +1205,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_56 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_56, "Sigboard: NA");
 	lv_label_set_long_mode(ui->screen_label_56, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_56, 1003, 347);
-	lv_obj_set_size(ui->screen_label_56, 223, 36);
+	lv_obj_set_pos(ui->screen_label_56, 1023, 351);
+	lv_obj_set_size(ui->screen_label_56, 242, 36);
 
 	//Write style for screen_label_56, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_56, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1213,7 +1216,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_56, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_56, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_56, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_56, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_56, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_56, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_56, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_56, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1225,8 +1228,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_57 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_57, "Card UUID:");
 	lv_label_set_long_mode(ui->screen_label_57, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_57, 1, 485);
-	lv_obj_set_size(ui->screen_label_57, 223, 36);
+	lv_obj_set_pos(ui->screen_label_57, 8, 490);
+	lv_obj_set_size(ui->screen_label_57, 261, 36);
 
 	//Write style for screen_label_57, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1236,7 +1239,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_57, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_57, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_57, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_57, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1248,8 +1251,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_58 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_58, "Card Type:");
 	lv_label_set_long_mode(ui->screen_label_58, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_58, 1, 521);
-	lv_obj_set_size(ui->screen_label_58, 223, 36);
+	lv_obj_set_pos(ui->screen_label_58, 8, 521);
+	lv_obj_set_size(ui->screen_label_58, 262, 36);
 
 	//Write style for screen_label_58, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_58, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1259,7 +1262,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_58, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_58, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_58, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_58, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_58, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_58, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_58, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_58, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1271,8 +1274,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_59 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_59, "Card Status:");
 	lv_label_set_long_mode(ui->screen_label_59, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_59, 0, 552);
-	lv_obj_set_size(ui->screen_label_59, 223, 36);
+	lv_obj_set_pos(ui->screen_label_59, 7, 552);
+	lv_obj_set_size(ui->screen_label_59, 267, 36);
 
 	//Write style for screen_label_59, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1282,13 +1285,59 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_text_opa(ui->screen_label_59, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_59, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_align(ui->screen_label_59, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_59, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_bg_opa(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_top(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_right(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_bottom(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_pad_left(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_shadow_width(ui->screen_label_59, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Write codes screen_label_60
+	ui->screen_label_60 = lv_label_create(ui->screen_cont_1);
+	lv_label_set_text(ui->screen_label_60, "13 A");
+	lv_label_set_long_mode(ui->screen_label_60, LV_LABEL_LONG_WRAP);
+	lv_obj_set_pos(ui->screen_label_60, 90, 741);
+	lv_obj_set_size(ui->screen_label_60, 135, 27);
+
+	//Write style for screen_label_60, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+	lv_obj_set_style_border_width(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(ui->screen_label_60, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(ui->screen_label_60, &lv_font_arial_30, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_opa(ui->screen_label_60, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_letter_space(ui->screen_label_60, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_line_space(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_60, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_opa(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_label_60, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Write codes screen_label_61
+	ui->screen_label_61 = lv_label_create(ui->screen_cont_1);
+	lv_label_set_text(ui->screen_label_61, "MAX:");
+	lv_label_set_long_mode(ui->screen_label_61, LV_LABEL_LONG_WRAP);
+	lv_obj_set_pos(ui->screen_label_61, 5, 741);
+	lv_obj_set_size(ui->screen_label_61, 83, 27);
+
+	//Write style for screen_label_61, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+	lv_obj_set_style_border_width(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(ui->screen_label_61, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(ui->screen_label_61, &lv_font_arial_30, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_opa(ui->screen_label_61, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_letter_space(ui->screen_label_61, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_line_space(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_61, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_opa(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
 	//Write codes screen_cont_3
 	ui->screen_cont_3 = lv_obj_create(ui->screen);

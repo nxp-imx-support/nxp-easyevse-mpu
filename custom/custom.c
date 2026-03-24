@@ -395,6 +395,13 @@ void custom_init(lv_ui *ui)
   lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
   printf("NFC Card Status initialized to: Status: NA\n");
 
+  // Initialize Current L1 display
+  lv_label_set_text(guider_ui.screen_label_60, "0.0 A");
+  printf("Current L1 initialized to: 0.0 A\n");
+
+
+
+
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
   //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -476,7 +483,7 @@ void set_screen_digital_clock_1(){
 }
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
-    printf("Received: %s -> %.*s\n", topic, message->payloadlen, (char *)message->payload);
+    // printf("Received: %s -> %.*s\n", topic, message->payloadlen, (char *)message->payload);
 
     // Update last message time
     last_mqtt_message_time = time(NULL);
@@ -832,7 +839,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                  (char *)message->payload);
       }
         
-     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
+    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
       // will uncomment with actual values
       // lv_label_set_text(guider_ui.screen_label_3, (char *)message->payload);
       // strcpy(final_energy,(char *)message->payload);
@@ -868,7 +875,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           printf("EV ID: NA (empty payload)\n");
     }
     
-  } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
+    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
     // Store MQTT battery level
     if (message->payloadlen > 0 && message->payload != NULL) {
         mqtt_battery_level = atof((char *)message->payload);
@@ -1246,7 +1253,48 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         printf("NFC Card Status: NA (empty payload)\n");
     }
 
-  }
+  } else if (strcmp(topic, "everest_api/evse_manager_1/var/powermeter") == 0) {
+        // printf("Received powermeter data: %.*s\n", message->payloadlen, (char *)message->payload);
+        
+        // Parse L1 current using string search
+        char *payload_str = (char *)message->payload;
+        
+        // First, find the "current_A" section
+        char *current_a_start = strstr(payload_str, "\"current_A\":");
+        
+        if (current_a_start != NULL) {
+            // Now find L1 within current_A section (not voltage_V section)
+            char *l1_start = strstr(current_a_start, "\"L1\":");
+            
+            if (l1_start != NULL) {
+                // Move pointer past "L1":
+                l1_start += 5;
+                
+                // Skip whitespace
+                while (*l1_start == ' ' || *l1_start == '\t') {
+                    l1_start++;
+                }
+                
+                // Parse the float value
+                float current_l1 = atof(l1_start);
+                char current_display[32];
+                
+                // Format: "24.5 A" with 1 decimal place
+                snprintf(current_display, sizeof(current_display), "%.1f A", current_l1);
+                
+                // Update label_60
+                lv_label_set_text(guider_ui.screen_label_60, current_display);
+                printf("Current L1 updated: %s\n", current_display);
+                
+                // Future: Add L2, L3, N handling here with else if blocks
+                
+            } else {
+                printf("Warning: L1 value not found in current_A section\n");
+            }
+        } else {
+            printf("Warning: current_A section not found in powermeter data\n");
+        }
+    }
   
   MQTTClient_freeMessage(&message);
   MQTTClient_free(topic);
@@ -1347,6 +1395,10 @@ void get_mqtt_state_for_evse()
   usleep(100000); // 100ms delay
   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_status", QOS);
   printf("Subscribe nfc_card_status: %d\n", rc);
+  // ADD THIS FOR MAX CURRENT
+  usleep(100000); // 100ms delay
+  rc = MQTTClient_subscribe(client, "everest_api/evse_manager_1/var/powermeter", QOS);
+  printf("Subscribe powermeter: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
