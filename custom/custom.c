@@ -192,7 +192,7 @@ void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, s
             snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
             strncpy(interface_name, ifa->ifa_name, iface_size - 1);
             interface_name[iface_size - 1] = '\0';
-            printf("Found IP address: (%s) on interface: %s\n", temp_ip, ifa->ifa_name);
+            // printf("Found IP address: (%s) on interface: %s\n", temp_ip, ifa->ifa_name);
             ip_found = true;
             break;  // Found eth1, stop searching
         }
@@ -214,7 +214,7 @@ void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, s
                 snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
                 strncpy(interface_name, ifa->ifa_name, iface_size - 1);
                 interface_name[iface_size - 1] = '\0';
-                printf("Found IP address: (%s) on interface: %s (fallback)\n", temp_ip, ifa->ifa_name);
+                // printf("Found IP address: (%s) on interface: %s (fallback)\n", temp_ip, ifa->ifa_name);
                 ip_found = true;
                 break;  // Found alternative interface, stop searching
             }
@@ -247,7 +247,7 @@ static void network_status_timer_cb(lv_timer_t * timer)
     lv_label_set_text(guider_ui.screen_label_41, ip_address);
     lv_label_set_text(guider_ui.screen_label_45, network_type);
     
-    printf("Network status updated - IP: %s, Type: %s\n", ip_address, network_type);
+    // printf("Network status updated - IP: %s, Type: %s\n", ip_address, network_type);
 }
 
 // Function to detect network type (Ethernet or WiFi)
@@ -259,8 +259,8 @@ void get_network_type(const char *interface_name, char *type_buffer, size_t buff
     // Default to Unknown
     snprintf(type_buffer, buffer_size, "Unknown");
     
-    printf("=== Network Type Detection ===\n");
-    printf("Interface name: %s\n", interface_name);
+    // printf("=== Network Type Detection ===\n");
+    // printf("Interface name: %s\n", interface_name);
     
     // Skip if no interface name
     if (strcmp(interface_name, "none") == 0) {
@@ -285,13 +285,13 @@ void get_network_type(const char *interface_name, char *type_buffer, size_t buff
         return;
     }
     
-    printf("Interface flags: 0x%x\n", ifr.ifr_flags);
-    printf("IFF_UP: %d\n", !!(ifr.ifr_flags & IFF_UP));
-    printf("IFF_RUNNING: %d\n", !!(ifr.ifr_flags & IFF_RUNNING));
+    // printf("Interface flags: 0x%x\n", ifr.ifr_flags);
+    // printf("IFF_UP: %d\n", !!(ifr.ifr_flags & IFF_UP));
+    // printf("IFF_RUNNING: %d\n", !!(ifr.ifr_flags & IFF_RUNNING));
     
     // Check if interface is UP and RUNNING (has active connection)
     if (!(ifr.ifr_flags & IFF_UP) || !(ifr.ifr_flags & IFF_RUNNING)) {
-        printf("Interface %s is not active (no network connection)\n", interface_name);
+        // printf("Interface %s is not active (no network connection)\n", interface_name);
         snprintf(type_buffer, buffer_size, "Unknown");
         close(sock);
         return;
@@ -304,15 +304,15 @@ void get_network_type(const char *interface_name, char *type_buffer, size_t buff
     // If ioctl succeeds, it's a wireless interface
     if (ioctl(sock, SIOCGIWNAME, &wrq) >= 0) {
         snprintf(type_buffer, buffer_size, "Wi-Fi");
-        printf("Interface %s is Wi-Fi (active)\n", interface_name);
+        // printf("Interface %s is Wi-Fi (active)\n", interface_name);
     } else {
         // Not wireless, it's wired/ethernet
         snprintf(type_buffer, buffer_size, "Wired");
-        printf("Interface %s is Wired/Ethernet (active)\n", interface_name);
+        // printf("Interface %s is Wired/Ethernet (active)\n", interface_name);
     }
     
     close(sock);
-    printf("=== End Detection ===\n");
+    // printf("=== End Detection ===\n");
 }
 
 
@@ -336,7 +336,7 @@ void custom_init(lv_ui *ui)
   get_mqtt_state_for_evse();
   set_screen_digital_clock_1();
 
-  lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 100, NULL);
+  lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 1000, NULL);
 
   // Show cont_4 overlay by default (waiting for EVerest/MQTT)
   lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
@@ -356,48 +356,48 @@ void custom_init(lv_ui *ui)
   // ADD THIS INITIALIZATION FOR EVSE ID
   // Initialize EVSE ID label with default "NA"
   lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
-  printf("EVSE ID initialized to 'EVSE ID: NA'\n");
+//   printf("EVSE ID initialized to 'EVSE ID: NA'\n");
   
   // ADD THIS INITIALIZATION FOR EV ID
   // Initialize EV ID label with formatted default
   lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
-  printf("EV ID initialized to 'EV ID: NA'\n");
+//   printf("EV ID initialized to 'EV ID: NA'\n");
 
   // Initialize ISO 15118 Mode label
   lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
-  printf("ISO 15118 Mode initialized to: ISO Mode: NA\n");
+//   printf("ISO 15118 Mode initialized to: ISO Mode: NA\n");
   
   // Initialize ISO 15118 Protocol label
   lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
-  printf("ISO 15118 Protocol initialized to: Protocol: NA\n");
+//   printf("ISO 15118 Protocol initialized to: Protocol: NA\n");
   
   // Initialize ISO 15118 Voltage label
   lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
-  printf("ISO 15118 Voltage initialized to: Voltage: NA\n");
+//   printf("ISO 15118 Voltage initialized to: Voltage: NA\n");
   
   // Initialize ISO 15118 Charging Direction label
   lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
-  printf("ISO 15118 Direction initialized to: Direction: NA\n");
+//   printf("ISO 15118 Direction initialized to: Direction: NA\n");
   // Initialize Sigboard Connection Type label
   lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
-  printf("Sigboard Connection initialized to: Sigboard: NA\n");
+//   printf("Sigboard Connection initialized to: Sigboard: NA\n");
 
   // Initialize NFC Card UID label
   lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-  printf("NFC Card UID initialized to: UID: NA\n");
+//   printf("NFC Card UID initialized to: UID: NA\n");
 
   // Initialize NFC Card Type label
   lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-  printf("NFC Card Type initialized to: Type: NA\n");
+//   printf("NFC Card Type initialized to: Type: NA\n");
 
   // Initialize NFC Card Status label
   lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
   lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-  printf("NFC Card Status initialized to: Status: NA\n");
+//   printf("NFC Card Status initialized to: Status: NA\n");
 
   // Initialize Current L1 display
   lv_label_set_text(guider_ui.screen_label_60, "0.0 A");
-  printf("Current L1 initialized to: 0.0 A\n");
+//   printf("Current L1 initialized to: 0.0 A\n");
 
 
 
@@ -430,12 +430,12 @@ void custom_init(lv_ui *ui)
     
     get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
     lv_label_set_text(guider_ui.screen_label_41, ip_address);
-    printf("Machine IP set to label_41: %s\n", ip_address);
+    // printf("Machine IP set to label_41: %s\n", ip_address);
     
     // Get and display network type
     get_network_type(interface_name, network_type, sizeof(network_type));
     lv_label_set_text(guider_ui.screen_label_45, network_type);
-    printf("Network type set to label_45: %s\n", network_type);
+    // printf("Network type set to label_45: %s\n", network_type);
     
     // Create timer to check network status every 5 seconds
     lv_timer_t * network_timer = lv_timer_create(network_status_timer_cb, 5000, NULL);
@@ -457,9 +457,9 @@ void update_time(){
     strcpy(am_pm, "AM");
   }
   
-  printf("DEBUG: hour_24 = %d\n", hour_24);
-  printf("DEBUG: am_pm string = '%s'\n", am_pm);
-  printf("DEBUG: am_pm[0] = '%c', am_pm[1] = '%c'\n", am_pm[0], am_pm[1]);
+//   printf("DEBUG: hour_24 = %d\n", hour_24);
+//   printf("DEBUG: am_pm string = '%s'\n", am_pm);
+//   printf("DEBUG: am_pm[0] = '%c', am_pm[1] = '%c'\n", am_pm[0], am_pm[1]);
   
   // Convert to 12-hour format
   int hour_12 = hour_24 % 12;
@@ -469,8 +469,8 @@ void update_time(){
   sprintf(minutes, "%02d", timeinfo->tm_min);
   sprintf(seconds, "%02d", timeinfo->tm_sec);
   
-  printf("Current local time and date: %s", asctime(timeinfo));
-  printf("Time: %s:%s:%s %s (24h: %d)\n", hour, minutes, seconds, am_pm, hour_24);
+//   printf("Current local time and date: %s", asctime(timeinfo));
+//   printf("Time: %s:%s:%s %s (24h: %d)\n", hour, minutes, seconds, am_pm, hour_24);
 }
 
 
@@ -503,8 +503,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
           // Skip if already processed to prevent duplicate processing
           if (session_end_processed) {
-              printf("\n>>> Session end already processed, skipping: %s <<<\n\n", 
-                     (char *)message->payload);
+            //   printf("\n>>> Session end already processed, skipping: %s <<<\n\n", 
+            //          (char *)message->payload);
               lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
@@ -514,37 +514,37 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // Mark as processed immediately
           session_end_processed = true;
           
-          printf("\n========================================\n");
-          printf("=== SESSION END: %s (PROCESSING) ===\n", (char *)message->payload);
-          printf("========================================\n");
+        //   printf("\n========================================\n");
+        //   printf("=== SESSION END: %s (PROCESSING) ===\n", (char *)message->payload);
+        //   printf("========================================\n");
           
           // Get current system time
           time_t rawtime;
           struct tm * timeinfo;
           time(&rawtime);
           timeinfo = localtime(&rawtime);
-          printf("System time NOW: %02d:%02d:%02d\n", 
-                 timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+        //   printf("System time NOW: %02d:%02d:%02d\n", 
+        //          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
           
-          printf("\nSession state:\n");
-          printf("  pause_time_captured = %d\n", pause_time_captured);
-          printf("  start_time_captured = %d\n", start_time_captured);
-          printf("  is_session_started = %d\n", is_session_started);
+        //   printf("\nSession state:\n");
+        //   printf("  pause_time_captured = %d\n", pause_time_captured);
+        //   printf("  start_time_captured = %d\n", start_time_captured);
+        //   printf("  is_session_started = %d\n", is_session_started);
           
-          if (pause_time_captured) {
-              printf("\nStored pauseTime:\n");
-              printf("  %02d:%02d:%02d %s\n", 
-                     pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
-                     (pauseTime.ampm == 'A') ? "AM" : "PM");
-          }
+        //   if (pause_time_captured) {
+        //       printf("\nStored pauseTime:\n");
+        //       printf("  %02d:%02d:%02d %s\n", 
+        //              pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+        //              (pauseTime.ampm == 'A') ? "AM" : "PM");
+        //   }
           
-          if (start_time_captured) {
-              printf("\nStored startTime:\n");
-              printf("  %02d:%02d:%02d %s\n", 
-                     startTime.hours, startTime.minutes, startTime.seconds,
-                     (startTime.ampm == 'A') ? "AM" : "PM");
-          }
-          printf("========================================\n\n");
+        //   if (start_time_captured) {
+        //       printf("\nStored startTime:\n");
+        //       printf("  %02d:%02d:%02d %s\n", 
+        //              startTime.hours, startTime.minutes, startTime.seconds,
+        //              (startTime.ampm == 'A') ? "AM" : "PM");
+        //   }
+        //   printf("========================================\n\n");
           
           active_session = false;
           start_time_captured = false;  // Keep this here
@@ -561,35 +561,35 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-              char string_time_out[20];
-              char diff_time[20];
+          char string_time_out[20];
+          char diff_time[20];
 
-              printf("\n========================================\n");
-              printf("=== CALCULATING END TIME ===\n");
-              printf("========================================\n");
-              printf("pause_time_captured = %d\n", pause_time_captured);
+            //   printf("\n========================================\n");
+            //   printf("=== CALCULATING END TIME ===\n");
+            //   printf("========================================\n");
+            //   printf("pause_time_captured = %d\n", pause_time_captured);
 
       // Use pause time as end time if session was paused, otherwise use current time
       if (pause_time_captured) {
           endTime = pauseTime;
-          printf("\n✓ Using PAUSE time as end time\n");
-          printf("  pauseTime: %02d:%02d:%02d %s\n", 
-                 pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
-                 (pauseTime.ampm == 'A') ? "AM" : "PM");
-          printf("  endTime: %02d:%02d:%02d %s\n", 
-                 endTime.hours, endTime.minutes, endTime.seconds,
-                 (endTime.ampm == 'A') ? "AM" : "PM");
+        //   printf("\n✓ Using PAUSE time as end time\n");
+        //   printf("  pauseTime: %02d:%02d:%02d %s\n", 
+        //          pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
+        //          (pauseTime.ampm == 'A') ? "AM" : "PM");
+        //   printf("  endTime: %02d:%02d:%02d %s\n", 
+        //          endTime.hours, endTime.minutes, endTime.seconds,
+        //          (endTime.ampm == 'A') ? "AM" : "PM");
       } else {
           set_screen_digital_clock_1();
           endTime.hours = atoi(hour);
           endTime.minutes = atoi(minutes);
           endTime.seconds = atoi(seconds);
           endTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
-          printf("\n✗ Using CURRENT time as end time\n");
-          printf("  Current: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
-          printf("  endTime: %02d:%02d:%02d %s\n", 
-                 endTime.hours, endTime.minutes, endTime.seconds,
-                 (endTime.ampm == 'A') ? "AM" : "PM");
+        //   printf("\n✗ Using CURRENT time as end time\n");
+        //   printf("  Current: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
+        //   printf("  endTime: %02d:%02d:%02d %s\n", 
+        //          endTime.hours, endTime.minutes, endTime.seconds,
+        //          (endTime.ampm == 'A') ? "AM" : "PM");
       }
   
       // Calculate duration
@@ -606,15 +606,15 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     diffTime.hours = 00;
   }
 
-  printf("\nDuration calculation:\n");
-  printf("  startTime: %02d:%02d:%02d %s (%d seconds)\n", 
-         startTime.hours, startTime.minutes, startTime.seconds,
-         (startTime.ampm == 'A') ? "AM" : "PM", startTimeInSeconds);
-  printf("  endTime: %02d:%02d:%02d %s (%d seconds)\n", 
-         endTime.hours, endTime.minutes, endTime.seconds,
-         (endTime.ampm == 'A') ? "AM" : "PM", endTimeInSeconds);
-  printf("  Duration: %02d:%02d:%02d (%d seconds)\n", 
-         diffTime.hours, diffTime.minutes, diffTime.seconds, diffInSeconds);
+//   printf("\nDuration calculation:\n");
+//   printf("  startTime: %02d:%02d:%02d %s (%d seconds)\n", 
+//          startTime.hours, startTime.minutes, startTime.seconds,
+//          (startTime.ampm == 'A') ? "AM" : "PM", startTimeInSeconds);
+//   printf("  endTime: %02d:%02d:%02d %s (%d seconds)\n", 
+//          endTime.hours, endTime.minutes, endTime.seconds,
+//          (endTime.ampm == 'A') ? "AM" : "PM", endTimeInSeconds);
+//   printf("  Duration: %02d:%02d:%02d (%d seconds)\n", 
+//          diffTime.hours, diffTime.minutes, diffTime.seconds, diffInSeconds);
           
   // Format end time string
   snprintf(string_time_out, sizeof(string_time_out), "%02d:%02d:%02d %s", 
@@ -623,10 +623,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
   snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
            diffTime.hours, diffTime.minutes, diffTime.seconds);
 
-  printf("\nFormatted strings:\n");
-  printf("  End time (label_30): %s\n", string_time_out);
-  printf("  Duration (label_31): %s\n", diff_time);
-  printf("========================================\n\n");
+//   printf("\nFormatted strings:\n");
+//   printf("  End time (label_30): %s\n", string_time_out);
+//   printf("  Duration (label_31): %s\n", diff_time);
+//   printf("========================================\n\n");
 
   lv_label_set_text(guider_ui.screen_label_30, string_time_out);
   lv_label_set_text(guider_ui.screen_label_31, diff_time);
@@ -647,11 +647,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("Session values reset (is_session_started was true)\n");
           }
 
-          printf("\n=== RESETTING FLAGS ===\n");
-          printf("Before reset - pause_time_captured = %d\n", pause_time_captured);
+        //   printf("\n=== RESETTING FLAGS ===\n");
+        //   printf("Before reset - pause_time_captured = %d\n", pause_time_captured);
           pause_time_captured = false;
-          printf("After reset - pause_time_captured = %d\n", pause_time_captured);
-          printf("=======================\n\n");
+        //   printf("After reset - pause_time_captured = %d\n", pause_time_captured);
+        //   printf("=======================\n\n");
         // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
       }
       // Capture pause time (handles both manual and automatic pause)
@@ -662,7 +662,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           pauseTime.seconds = atoi(seconds);
           pauseTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
           pause_time_captured = true;
-          printf("Pause time captured: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
+        //   printf("Pause time captured: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
       }
 
       // Existing grouped condition (keep as is)
@@ -710,7 +710,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               lv_label_set_text(guider_ui.screen_label_29, string_time);
               
               start_time_captured = true;
-              printf("Start time captured at Charging state: %s\n", string_time);
+            //   printf("Start time captured at Charging state: %s\n", string_time);
           }
       }      
       if ((strcmp((char *)message->payload,"PrepareCharging") == 0) && (is_new_session)){
@@ -782,19 +782,19 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
       //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
-      mqtt_power_kw = atof((char *)message->payload);
-      printf("Received totalKw: %.2f\n", mqtt_power_kw);
+    //   mqtt_power_kw = atof((char *)message->payload);
+    //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
       //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
 
        int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
       //move to increare_batery_level 
       //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
-      mqtt_power_kw = atof((char *)message->payload);
-      printf("Received totalKw: %.2f\n", mqtt_power_kw);
+    //   mqtt_power_kw = atof((char *)message->payload);
+    //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
 
       // Network connectivity check and icon update
       if (result == 0) {
-          printf("Internet connection is available.\n");
+        //   printf("Internet connection is available.\n");
           lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
           // lv_obj_add_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
@@ -805,31 +805,31 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // lv_obj_clear_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
-          printf("Internet connection is not available.\n");
+        //   printf("Internet connection is not available.\n");
       } 
     increase_battery_level();
 
     }else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
-      printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
+    //   printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
       
       // Handle connection status values: "connected", "disconnected", "unknown"
       if (strcmp((char *)message->payload, "connected") == 0) {
           // CSMS connected - show green/connected icon (img_11)
           lv_obj_clear_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
-          printf("CSMS Status: Connected ✓\n");
+        //   printf("CSMS Status: Connected ✓\n");
           
       } else if (strcmp((char *)message->payload, "disconnected") == 0) {
           // CSMS disconnected - show red/disconnected icon (img_16)
           lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
-          printf("CSMS Status: Disconnected ✗\n");
+        //   printf("CSMS Status: Disconnected ✗\n");
           
       } else if (strcmp((char *)message->payload, "unknown") == 0) {
           // CSMS status unknown - treat as disconnected
           lv_obj_add_flag(guider_ui.screen_img_11, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(guider_ui.screen_img_16, LV_OBJ_FLAG_HIDDEN);
-          printf("CSMS Status: Unknown (treated as disconnected)\n");
+        //   printf("CSMS Status: Unknown (treated as disconnected)\n");
           
       } else {
           // Unexpected value - default to disconnected
@@ -845,9 +845,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // strcpy(final_energy,(char *)message->payload);
       mqtt_energy_kwh = atof((char *)message->payload);
       strcpy(final_energy, (char *)message->payload);
-      printf("Received totalKWattHr: %.3f\n", mqtt_energy_kwh);
+    //   printf("Received totalKWattHr: %.3f\n", mqtt_energy_kwh);
 
-      printf("this is blank");
+    //   printf("this is blank");
       // will uncomment with actual values
     } else if (strcmp(topic, "everest_external/nodered/1/evse/evse_id") == 0) {
       char evse_id_display[128];
@@ -1284,7 +1284,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 
                 // Update label_60
                 lv_label_set_text(guider_ui.screen_label_60, current_display);
-                printf("Current L1 updated: %s\n", current_display);
+                // printf("Current L1 updated: %s\n", current_display);
                 
                 // Future: Add L2, L3, N handling here with else if blocks
                 
@@ -1332,78 +1332,117 @@ void get_mqtt_state_for_evse()
       printf("Connected to MQTT broker ...\n");
      // lv_label_set_text(guider_ui.pageStatic_label_1, "");
   }
+
+  /////////////////////////Old subscriptions START
   /* Introduced delay to avoid subscription lost
      due to Timing/race conditoin issue
    */
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS);
-  printf("Subscribe totalKWattHr: %d\n", rc);
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKw", QOS);
-  printf("Subscribe totalKw: %d\n", rc);
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/temperature", QOS);
-  printf("Subscribe temperature: %d\n", rc);
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
-  printf("Subscribe state_string: %d\n", rc);
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_api/ocpp/var/connection_status", QOS);
-  printf("Subscribe CSMS connection_status: %d\n", rc);
-  printf("Subscribe csms_status: %d\n", rc);
-  // ADD THIS FOR EVSE ID
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/evse/evse_id", QOS);
-  printf("Subscribe evse_id: %d\n", rc);
-  // ADD THIS FOR EV ID
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/ev_id", QOS);
-  printf("Subscribe ev_id: %d\n", rc);
-  // ADD THIS FOR BATTERY LEVEL
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/battery_level", QOS);
-  printf("Subscribe battery_level: %d\n", rc);
-  // ADD THIS FOR ISO 15118 MODE
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/mode", QOS);
-  printf("Subscribe iso15118_mode: %d\n", rc);
-  // ADD THIS FOR ISO 15118 PROTOCOL
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/protocol", QOS);
-  printf("Subscribe iso15118_protocol: %d\n", rc);
-  // ADD THIS FOR ISO 15118 VOLTAGE
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
-  printf("Subscribe iso15118_voltage: %d\n", rc);
-  // ADD THIS FOR ISO 15118 CHARGING DIRECTION
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/direction", QOS);
-  printf("Subscribe iso15118_direction: %d\n", rc);
-  // ADD THIS FOR SIGBOARD CONNECTION TYPE
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/sigboard/connection_type", QOS);
-  printf("Subscribe sigboard_connection_type: %d\n", rc);
-  // ADD THIS FOR NFC CARD UID
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_uid", QOS);
-  printf("Subscribe nfc_card_uid: %d\n", rc);
-  // ADD THIS FOR NFC CARD TYPE
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_type", QOS);
-  printf("Subscribe nfc_card_type: %d\n", rc);
-  // ADD THIS FOR NFC CARD STATUS
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_status", QOS);
-  printf("Subscribe nfc_card_status: %d\n", rc);
-  // ADD THIS FOR MAX CURRENT
-  usleep(100000); // 100ms delay
-  rc = MQTTClient_subscribe(client, "everest_api/evse_manager_1/var/powermeter", QOS);
-  printf("Subscribe powermeter: %d\n", rc);
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS);
+// //   printf("Subscribe totalKWattHr: %d\n", rc);
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKw", QOS);
+// //   printf("Subscribe totalKw: %d\n", rc);
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/temperature", QOS);
+// //   printf("Subscribe temperature: %d\n", rc);
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
+// //   printf("Subscribe state_string: %d\n", rc);
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_api/ocpp/var/connection_status", QOS);
+// //   printf("Subscribe CSMS connection_status: %d\n", rc);
+// //   printf("Subscribe csms_status: %d\n", rc);
+//   // ADD THIS FOR EVSE ID
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/evse/evse_id", QOS);
+// //   printf("Subscribe evse_id: %d\n", rc);
+//   // ADD THIS FOR EV ID
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/ev_id", QOS);
+// //   printf("Subscribe ev_id: %d\n", rc);
+//   // ADD THIS FOR BATTERY LEVEL
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/battery_level", QOS);
+// //   printf("Subscribe battery_level: %d\n", rc);
+//   // ADD THIS FOR ISO 15118 MODE
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/mode", QOS);
+// //   printf("Subscribe iso15118_mode: %d\n", rc);
+//   // ADD THIS FOR ISO 15118 PROTOCOL
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/protocol", QOS);
+// //   printf("Subscribe iso15118_protocol: %d\n", rc);
+//   // ADD THIS FOR ISO 15118 VOLTAGE
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
+// //   printf("Subscribe iso15118_voltage: %d\n", rc);
+//   // ADD THIS FOR ISO 15118 CHARGING DIRECTION
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/direction", QOS);
+// //   printf("Subscribe iso15118_direction: %d\n", rc);
+//   // ADD THIS FOR SIGBOARD CONNECTION TYPE
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/sigboard/connection_type", QOS);
+// //   printf("Subscribe sigboard_connection_type: %d\n", rc);
+//   // ADD THIS FOR NFC CARD UID
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_uid", QOS);
+// //   printf("Subscribe nfc_card_uid: %d\n", rc);
+//   // ADD THIS FOR NFC CARD TYPE
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_type", QOS);
+// //   printf("Subscribe nfc_card_type: %d\n", rc);
+//   // ADD THIS FOR NFC CARD STATUS
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_status", QOS);
+// //   printf("Subscribe nfc_card_status: %d\n", rc);
+//   // ADD THIS FOR MAX CURRENT
+//   usleep(100000); // 100ms delay
+//   rc = MQTTClient_subscribe(client, "everest_api/evse_manager_1/var/powermeter", QOS);
+//   printf("Subscribe powermeter: %d\n", rc);
 
   // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
 
   // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
   // set_max_temp();
+  /////////////////////////Old subscriptions END
+// *******************************************************************************************
+
+  /////////////////////////replace subscription starts
+    // Subscribe to all topics (no delays needed - MQTT client handles queuing)
+    const char* topics[] = {
+        "everest_external/nodered/1/powermeter/totalKWattHr",
+        "everest_external/nodered/1/powermeter/totalKw",
+        "everest_external/nodered/1/state/temperature",
+        "everest_external/nodered/1/state/state_string",
+        "everest_api/ocpp/var/connection_status",
+        "everest_external/nodered/1/evse/evse_id",
+        "everest_external/nodered/1/ev/ev_id",
+        "everest_external/nodered/1/ev/battery_level",
+        "everest_external/nodered/1/iso15118/mode",
+        "everest_external/nodered/1/iso15118/protocol",
+        "everest_external/nodered/1/iso15118/voltage",
+        "everest_external/nodered/1/iso15118/direction",
+        "everest_external/nodered/1/sigboard/connection_type",
+        "everest_external/nodered/1/nfc/card_uid",
+        "everest_external/nodered/1/nfc/card_type",
+        "everest_external/nodered/1/nfc/card_status",
+        "everest_api/evse_manager_1/var/powermeter"
+    };
+
+    int topic_count = sizeof(topics) / sizeof(topics[0]);
+
+    for (int i = 0; i < topic_count; i++) {
+        rc = MQTTClient_subscribe(client, topics[i], QOS);
+        if (rc != MQTTCLIENT_SUCCESS) {
+            printf("Failed to subscribe to %s: %d\n", topics[i], rc);
+        }
+    }
+
+    printf("Subscribed to %d MQTT topics\n", topic_count);
+
+  ////////////////////////replace subscription end
 }
 
 void set_max_temp(){
