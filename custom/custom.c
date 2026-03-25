@@ -941,48 +941,57 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         printf("ISO 15118 Mode: NA (empty payload)\n");
     }
     
-  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/protocol") == 0) {
+  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol") == 0) {
     char protocol_display[64];
-      
+    
     if (message->payloadlen > 0 && message->payload != NULL) {
-        char *protocol = (char *)message->payload;
-          
-        // Check for ISO 15118-2
-        if (strstr(protocol, "15118-2") != NULL || 
-            strstr(protocol, "15118_2") != NULL ||
-            strcasecmp(protocol, "ISO15118-2") == 0 ||
-            strcasecmp(protocol, "ISO 15118-2") == 0) {
+        char *payload_str = (char *)message->payload;
+        
+        // The payload is a simple string value like "IEC61851-1" or "Unknown"
+        // Remove quotes if present
+        char protocol[64] = {0};
+        int idx = 0;
+        
+        for (int i = 0; i < message->payloadlen && i < 63; i++) {
+            char c = payload_str[i];
+            // Skip quotes
+            if (c != '"' && c != '\0') {
+                protocol[idx++] = c;
+            }
+        }
+        protocol[idx] = '\0';
+        
+        // Check for known protocols
+        if (strcasecmp(protocol, "Unknown") == 0) {
+            snprintf(protocol_display, sizeof(protocol_display), "Protocol: Unknown");
+        } else if (strstr(protocol, "15118-2") != NULL || 
+                   strstr(protocol, "15118_2") != NULL ||
+                   strcasecmp(protocol, "ISO15118-2") == 0 ||
+                   strcasecmp(protocol, "ISO 15118-2") == 0) {
             snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-2");
-            lv_label_set_text(guider_ui.screen_label_53, protocol_display);
-            printf("ISO 15118 Protocol: ISO 15118-2\n");
-        }
-        // Check for ISO 15118-20
-        else if (strstr(protocol, "15118-20") != NULL || 
-                 strstr(protocol, "15118_20") != NULL ||
-                 strcasecmp(protocol, "ISO15118-20") == 0 ||
-                 strcasecmp(protocol, "ISO 15118-20") == 0) {
+        } else if (strstr(protocol, "15118-20") != NULL || 
+                   strstr(protocol, "15118_20") != NULL ||
+                   strcasecmp(protocol, "ISO15118-20") == 0 ||
+                   strcasecmp(protocol, "ISO 15118-20") == 0) {
             snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-20");
-            lv_label_set_text(guider_ui.screen_label_53, protocol_display);
-            printf("ISO 15118 Protocol: ISO 15118-20\n");
-        }
-        // Check for Basic/IEC 61851
-        else if (strcasecmp(protocol, "Basic") == 0 ||
-                 strcasecmp(protocol, "IEC61851") == 0 ||
-                 strcasecmp(protocol, "IEC 61851") == 0 ||
-                 strstr(protocol, "61851") != NULL) {
+        } else if (strcasecmp(protocol, "IEC61851-1") == 0 ||
+                   strcasecmp(protocol, "IEC 61851-1") == 0 ||
+                   strcasecmp(protocol, "IEC61851") == 0 ||
+                   strcasecmp(protocol, "Basic") == 0 ||
+                   strstr(protocol, "61851") != NULL) {
             snprintf(protocol_display, sizeof(protocol_display), "Protocol: Basic");
-            lv_label_set_text(guider_ui.screen_label_53, protocol_display);
-            printf("ISO 15118 Protocol: Basic\n");
-        }
-        // Unknown protocol
-        else {
+        } else if (strlen(protocol) > 0) {
+            // Display the raw protocol value if not empty and unknown
             snprintf(protocol_display, sizeof(protocol_display), "Protocol: %s", protocol);
-            lv_label_set_text(guider_ui.screen_label_53, protocol_display);
-            printf("ISO 15118 Protocol: Unknown '%s'\n", protocol);
+        } else {
+            snprintf(protocol_display, sizeof(protocol_display), "Protocol: NA");
         }
+        
+        lv_label_set_text(guider_ui.screen_label_53, protocol_display);
+        printf("Selected Protocol: %s\n", protocol);
     } else {
         lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
-        printf("ISO 15118 Protocol: NA (empty payload)\n");
+        printf("Selected Protocol: NA (empty payload)\n");
     }
   } else if (strcmp(topic, "everest_external/nodered/1/iso15118/voltage") == 0) {
     char voltage_display[32];
@@ -1378,7 +1387,7 @@ void get_mqtt_state_for_evse()
 // //   printf("Subscribe iso15118_mode: %d\n", rc);
 //   // ADD THIS FOR ISO 15118 PROTOCOL
 //   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/protocol", QOS);
+//   rc = MQTTClient_subscribe(client, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol", QOS);
 // //   printf("Subscribe iso15118_protocol: %d\n", rc);
 //   // ADD THIS FOR ISO 15118 VOLTAGE
 //   usleep(100000); // 100ms delay
@@ -1428,7 +1437,7 @@ void get_mqtt_state_for_evse()
         "everest_external/nodered/1/ev/ev_id",
         "everest_external/nodered/1/ev/battery_level",
         "everest_external/nodered/1/iso15118/mode",
-        "everest_external/nodered/1/iso15118/protocol",
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
         "everest_external/nodered/1/iso15118/voltage",
         "everest_external/nodered/1/iso15118/direction",
         "everest_external/nodered/1/sigboard/connection_type",
