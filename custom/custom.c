@@ -643,6 +643,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
             lv_label_set_text(guider_ui.screen_label_25, "0");
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
+            lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
           }
@@ -1054,55 +1055,63 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         printf("Sigboard Connection: NA (empty payload)\n");
     }
   
-  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_uid") == 0) {
+  } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
+      char *payload_str = (char *)message->payload;
     char uid_display[64];
-      
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char *uid_raw = (char *)message->payload;
-        char uid_formatted[64] = {0};
-        int uid_len = strlen(uid_raw);
-          
-        // Remove any existing colons, spaces, or dashes from input
-        char uid_clean[64] = {0};
-        int clean_idx = 0;
-        for (int i = 0; i < uid_len && i < 63; i++) {
-            char c = uid_raw[i];
-            // Keep only hex characters (0-9, A-F, a-f)
-            if ((c >= '0' && c <= '9') || 
-                (c >= 'A' && c <= 'F') || 
-                (c >= 'a' && c <= 'f')) {
-                uid_clean[clean_idx++] = toupper(c);
-            }
+    
+    // Find "value" field in id_token
+    char *value_start = strstr(payload_str, "\"value\":");
+    
+    if (value_start != NULL) {
+        value_start += 8;  // Skip past "value":
+        
+        // Skip whitespace and opening quote
+        while (*value_start == ' ' || *value_start == '\t' || *value_start == '"') {
+            value_start++;
         }
-        uid_clean[clean_idx] = '\0';
-          
-        int clean_len = strlen(uid_clean);
-          
-        // Validate UID length (must be 8, 14, or 20 hex characters for 4, 7, or 10 bytes)
-        if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
-            // Format with colons (XX:XX:XX:XX format)
-            int formatted_idx = 0;
-            for (int i = 0; i < clean_len; i += 2) {
-                if (i > 0) {
-                    uid_formatted[formatted_idx++] = ':';
+        
+        // Find closing quote
+        char *value_end = strchr(value_start, '"');
+        
+        if (value_end != NULL && (value_end - value_start) > 0) {
+            int uid_len = value_end - value_start;
+            char uid_raw[64];
+            strncpy(uid_raw, value_start, uid_len);
+            uid_raw[uid_len] = '\0';
+            
+            // Clean: keep only hex characters
+            char uid_clean[64] = {0};
+            int clean_idx = 0;
+            for (int i = 0; i < uid_len && clean_idx < 63; i++) {
+                char c = uid_raw[i];
+                if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+                    uid_clean[clean_idx++] = toupper(c);
                 }
-                uid_formatted[formatted_idx++] = uid_clean[i];
-                uid_formatted[formatted_idx++] = uid_clean[i + 1];
             }
-            uid_formatted[formatted_idx] = '\0';
-              
-            snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
-            lv_label_set_text(guider_ui.screen_label_57, uid_display);
-            printf("NFC Card UID: %s (%d bytes)\n", uid_formatted, clean_len / 2);
+            
+            int clean_len = strlen(uid_clean);
+            
+            // Format with colons if valid length (4, 7, or 10 bytes)
+            if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
+                char uid_formatted[32] = {0};
+                int fmt_idx = 0;
+                for (int i = 0; i < clean_len; i += 2) {
+                    if (i > 0) uid_formatted[fmt_idx++] = ':';
+                    uid_formatted[fmt_idx++] = uid_clean[i];
+                    uid_formatted[fmt_idx++] = uid_clean[i + 1];
+                }
+                snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
+            } else {
+                snprintf(uid_display, sizeof(uid_display), "UID: NA");
+            }
         } else {
-            // Invalid UID length
-            lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-            printf("NFC Card UID: Invalid length (%d hex chars, expected 8/14/20)\n", clean_len);
+            snprintf(uid_display, sizeof(uid_display), "UID: NA");
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-        printf("NFC Card UID: NA (empty payload)\n");
-    }    
+        snprintf(uid_display, sizeof(uid_display), "UID: NA");
+    }
+    
+    lv_label_set_text(guider_ui.screen_label_57, uid_display);   
   } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_type") == 0) {
     char type_display[64];
     
@@ -1387,7 +1396,7 @@ void get_mqtt_state_for_evse()
 // //   printf("Subscribe sigboard_connection_type: %d\n", rc);
 //   // ADD THIS FOR NFC CARD UID
 //   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_uid", QOS);
+//   rc = MQTTClient_subscribe(client, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status", QOS);
 // //   printf("Subscribe nfc_card_uid: %d\n", rc);
 //   // ADD THIS FOR NFC CARD TYPE
 //   usleep(100000); // 100ms delay
@@ -1425,7 +1434,7 @@ void get_mqtt_state_for_evse()
         "everest_external/nodered/1/iso15118/voltage",
         "everest_external/nodered/1/iso15118/direction",
         "everest_external/nodered/1/sigboard/connection_type",
-        "everest_external/nodered/1/nfc/card_uid",
+        "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
         "everest_external/nodered/1/nfc/card_type",
         "everest_external/nodered/1/nfc/card_status",
         "everest_api/evse_manager_1/var/powermeter"

@@ -1228,8 +1228,8 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_57 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_57, "Card UUID:");
 	lv_label_set_long_mode(ui->screen_label_57, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_57, 8, 490);
-	lv_obj_set_size(ui->screen_label_57, 261, 36);
+	lv_obj_set_pos(ui->screen_label_57, 8, 487);
+	lv_obj_set_size(ui->screen_label_57, 303, 32);
 
 	//Write style for screen_label_57, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_57, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1421,7 +1421,7 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_29
 	ui->screen_label_29 = lv_label_create(ui->screen_cont_3);
-	lv_label_set_text(ui->screen_label_29, "10:05:55 AM");
+	lv_label_set_text(ui->screen_label_29, "00:00:00 AM");
 	lv_label_set_long_mode(ui->screen_label_29, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_29, 372, 250);
 	lv_obj_set_size(ui->screen_label_29, 332, 41);
@@ -1444,7 +1444,7 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_30
 	ui->screen_label_30 = lv_label_create(ui->screen_cont_3);
-	lv_label_set_text(ui->screen_label_30, "10:39:58 AM");
+	lv_label_set_text(ui->screen_label_30, "00:00:00 AM");
 	lv_label_set_long_mode(ui->screen_label_30, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_30, 371, 289);
 	lv_obj_set_size(ui->screen_label_30, 317, 41);
@@ -1467,7 +1467,7 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_31
 	ui->screen_label_31 = lv_label_create(ui->screen_cont_3);
-	lv_label_set_text(ui->screen_label_31, "00:34:03");
+	lv_label_set_text(ui->screen_label_31, "00:00:00");
 	lv_label_set_long_mode(ui->screen_label_31, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_31, 374, 331);
 	lv_obj_set_size(ui->screen_label_31, 389, 41);
