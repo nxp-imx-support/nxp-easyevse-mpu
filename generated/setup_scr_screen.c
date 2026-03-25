@@ -1067,7 +1067,7 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_44 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_44, "EV ID: NA");
 	lv_label_set_long_mode(ui->screen_label_44, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_44, 1025, 172);
+	lv_obj_set_pos(ui->screen_label_44, 1025, 164);
 	lv_obj_set_size(ui->screen_label_44, 232, 39);
 
 	//Write style for screen_label_44, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -1251,7 +1251,7 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_58 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_58, "Card Type:");
 	lv_label_set_long_mode(ui->screen_label_58, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_58, 8, 521);
+	lv_obj_set_pos(ui->screen_label_58, 7, 519);
 	lv_obj_set_size(ui->screen_label_58, 262, 36);
 
 	//Write style for screen_label_58, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.

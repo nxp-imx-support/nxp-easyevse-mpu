@@ -863,14 +863,36 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
     //   printf("this is blank");
       // will uncomment with actual values
-    } else if (strcmp(topic, "everest_external/nodered/1/evse/evse_id") == 0) {
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id") == 0) {
       char evse_id_display[128];
-      
+    
       // Check if payload is empty or null
       if (message->payloadlen > 0 && message->payload != NULL) {
-          snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", (char *)message->payload);
-          lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
-          printf("EVSE ID: %s\n", (char *)message->payload);
+          char *payload_str = (char *)message->payload;
+          
+          // The payload is a simple string value like "RO*NXP*E1234567*1"
+          // Remove quotes if present
+          char evse_id[128] = {0};
+          int idx = 0;
+          
+          for (int i = 0; i < message->payloadlen && i < 127; i++) {
+              char c = payload_str[i];
+              // Skip quotes
+              if (c != '"' && c != '\0') {
+                  evse_id[idx++] = c;
+              }
+          }
+          evse_id[idx] = '\0';
+          
+          // Check if we got a valid EVSE ID
+          if (strlen(evse_id) > 0) {
+              snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", evse_id);
+              lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
+              printf("EVSE ID: %s\n", evse_id);
+          } else {
+              lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+              printf("EVSE ID: NA (empty after parsing)\n");
+          }
       } else {
           lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
           printf("EVSE ID: NA (empty payload)\n");
@@ -1340,7 +1362,7 @@ void get_mqtt_state_for_evse()
 // //   printf("Subscribe csms_status: %d\n", rc);
 //   // ADD THIS FOR EVSE ID
 //   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/evse/evse_id", QOS);
+//   rc = MQTTClient_subscribe(client, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id", QOS);
 // //   printf("Subscribe evse_id: %d\n", rc);
 //   // ADD THIS FOR EV ID
 //   usleep(100000); // 100ms delay
@@ -1402,7 +1424,7 @@ void get_mqtt_state_for_evse()
         "everest_external/nodered/1/state/temperature",
         "everest_external/nodered/1/state/state_string",
         "everest_api/ocpp/var/connection_status",
-        "everest_external/nodered/1/evse/evse_id",
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
         "everest_external/nodered/1/ev/ev_id",
         "everest_external/nodered/1/ev/battery_level",
         "everest_external/nodered/1/iso15118/mode",
