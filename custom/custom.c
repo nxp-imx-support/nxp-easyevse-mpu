@@ -508,6 +508,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
               lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
               lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+              lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+              lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
               return 1;
@@ -566,6 +568,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // Reset NFC Card UID and Type (always, regardless of session state)
           lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
           lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+          lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+          lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
           char string_time_out[20];
           char diff_time[20];
 
@@ -650,6 +654,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
             lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
             lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+            lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
 
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
@@ -1066,6 +1072,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       char *payload_str = (char *)message->payload;
     char uid_display[64];
     char type_display[64];
+    char status_display[64];
     
     // Find "value" field in id_token for UID
     char *value_start = strstr(payload_str, "\"value\":");
@@ -1169,155 +1176,66 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         snprintf(type_display, sizeof(type_display), "Type: NA");
     }
     
-    lv_label_set_text(guider_ui.screen_label_58, type_display);  
-  // } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_type") == 0) {
-  //   char type_display[64];
+    lv_label_set_text(guider_ui.screen_label_58, type_display);
     
-  //   if (message->payloadlen > 0 && message->payload != NULL) {
-  //       char *card_type = (char *)message->payload;
-        
-  //       // Check for MIFARE Classic
-  //       if (strcasestr(card_type, "MIFARE Classic") != NULL ||
-  //           strcasestr(card_type, "MIFAREClassic") != NULL ||
-  //           strcasestr(card_type, "MIFARE_Classic") != NULL ||
-  //           strcasestr(card_type, "MFC") != NULL ||
-  //           strcasestr(card_type, "Classic") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE Classic");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: MIFARE Classic\n");
-  //       }
-  //       // Check for MIFARE Ultralight
-  //       else if (strcasestr(card_type, "MIFARE Ultralight") != NULL ||
-  //                 strcasestr(card_type, "MIFAREUltralight") != NULL ||
-  //                 strcasestr(card_type, "MIFARE_Ultralight") != NULL ||
-  //                 strcasestr(card_type, "MFU") != NULL ||
-  //                 strcasestr(card_type, "Ultralight") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE Ultralight");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: MIFARE Ultralight\n");
-  //       }
-  //       // Check for MIFARE DESFire
-  //       else if (strcasestr(card_type, "MIFARE DESFire") != NULL ||
-  //                 strcasestr(card_type, "MIFAREDESFire") != NULL ||
-  //                 strcasestr(card_type, "MIFARE_DESFire") != NULL ||
-  //                 strcasestr(card_type, "DESFire") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE DESFire");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: MIFARE DESFire\n");
-  //       }
-  //       // Check for NTAG213
-  //       else if (strcasestr(card_type, "NTAG213") != NULL ||
-  //                 strcasestr(card_type, "NTAG 213") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: NTAG213");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: NTAG213\n");
-  //       }
-  //       // Check for NTAG215
-  //       else if (strcasestr(card_type, "NTAG215") != NULL ||
-  //                 strcasestr(card_type, "NTAG 215") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: NTAG215");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: NTAG215\n");
-  //       }
-  //       // Check for NTAG216
-  //       else if (strcasestr(card_type, "NTAG216") != NULL ||
-  //                 strcasestr(card_type, "NTAG 216") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: NTAG216");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: NTAG216\n");
-  //       }
-  //       // Check for generic NTAG
-  //       else if (strcasestr(card_type, "NTAG") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: NTAG");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: NTAG (generic)\n");
-  //       }
-  //       // Check for ISO14443A
-  //       else if (strcasestr(card_type, "ISO14443A") != NULL ||
-  //                 strcasestr(card_type, "ISO 14443A") != NULL ||
-  //                 strcasestr(card_type, "ISO-14443A") != NULL ||
-  //                 strcasestr(card_type, "14443A") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: ISO14443A");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: ISO14443A\n");
-  //       }
-  //       // Check for ISO14443B
-  //       else if (strcasestr(card_type, "ISO14443B") != NULL ||
-  //                 strcasestr(card_type, "ISO 14443B") != NULL ||
-  //                 strcasestr(card_type, "ISO-14443B") != NULL ||
-  //                 strcasestr(card_type, "14443B") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: ISO14443B");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: ISO14443B\n");
-  //       }
-  //       // Check for ISO15693
-  //       else if (strcasestr(card_type, "ISO15693") != NULL ||
-  //                 strcasestr(card_type, "ISO 15693") != NULL ||
-  //                 strcasestr(card_type, "ISO-15693") != NULL ||
-  //                 strcasestr(card_type, "15693") != NULL) {
-  //           snprintf(type_display, sizeof(type_display), "Type: ISO15693");
-  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
-  //           printf("NFC Card Type: ISO15693\n");
-  //       }
-  //       // Unknown or invalid card type
-  //       else {
-  //           lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-  //           printf("NFC Card Type: Unknown (%s)\n", card_type);
-  //       }
-  //   } else {
-  //       lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-  //       printf("NFC Card Type: NA (empty payload)\n");
-  //   }
-  // ADD THIS HANDLER FOR NFC CARD STATUS
-  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_status") == 0) {
-    char status_display[32];
+    // Find "status" field for Card Status
+    char *status_start = strstr(payload_str, "\"status\":");
     
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char *card_status = (char *)message->payload;
+    if (status_start != NULL) {
+        status_start += 9;  // Skip past "status":
         
-        // Check for Accepted/Authorized
-        if (strcasestr(card_status, "Accepted") != NULL ||
-            strcasestr(card_status, "Authorized") != NULL ||
-            strcasestr(card_status, "Approved") != NULL ||
-            strcasestr(card_status, "Valid") != NULL ||
-            strcasestr(card_status, "OK") != NULL ||
-            strcasestr(card_status, "Success") != NULL ||
-            strcasecmp(card_status, "1") == 0 ||
-            strcasecmp(card_status, "true") == 0) {
-            snprintf(status_display, sizeof(status_display), "Status: Accepted");
-            lv_label_set_text(guider_ui.screen_label_59, status_display);
-            // Set text color to green (0x00FF00 or similar)
-            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
-            printf("NFC Card Status: Accepted (green)\n");
+        // Skip whitespace and opening quote
+        while (*status_start == ' ' || *status_start == '\t' || *status_start == '"') {
+            status_start++;
         }
-        // Check for Rejected/Denied
-        else if (strcasestr(card_status, "Rejected") != NULL ||
-                  strcasestr(card_status, "Denied") != NULL ||
-                  strcasestr(card_status, "Unauthorized") != NULL ||
-                  strcasestr(card_status, "Invalid") != NULL ||
-                  strcasestr(card_status, "Blocked") != NULL ||
-                  strcasestr(card_status, "Failed") != NULL ||
-                  strcasestr(card_status, "Error") != NULL ||
-                  strcasecmp(card_status, "0") == 0 ||
-                  strcasecmp(card_status, "false") == 0) {
-            snprintf(status_display, sizeof(status_display), "Status: Rejected");
+        
+        // Find closing quote
+        char *status_end = strchr(status_start, '"');
+        
+        if (status_end != NULL && (status_end - status_start) > 0) {
+            int status_len = status_end - status_start;
+            char card_status[64];
+            strncpy(card_status, status_start, status_len);
+            card_status[status_len] = '\0';
+            
+            // Check for Accepted/Authorized status
+            if (strcasecmp(card_status, "Accepted") == 0 ||
+                strcasecmp(card_status, "Authorized") == 0 ||
+                strcasecmp(card_status, "UsedToStart") == 0 ||
+                strcasecmp(card_status, "Valid") == 0 ||
+                strcasecmp(card_status, "OK") == 0) {
+                snprintf(status_display, sizeof(status_display), "Status: Accepted");
+                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                // Set text color to green
+                lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
+            }
+            // Check for Rejected/Denied status
+            else if (strcasecmp(card_status, "Rejected") == 0 ||
+                     strcasecmp(card_status, "Denied") == 0 ||
+                     strcasecmp(card_status, "Invalid") == 0 ||
+                     strcasecmp(card_status, "Blocked") == 0 ||
+                     strcasecmp(card_status, "Failed") == 0) {
+                snprintf(status_display, sizeof(status_display), "Status: Rejected");
+                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                // Set text color to red
+                lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
+            }
+            // Unknown status - display as-is
+            else {
+                snprintf(status_display, sizeof(status_display), "Status: %s", card_status);
+                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                // Set text color to default gray/white
+                lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+            }
+        } else {
+            snprintf(status_display, sizeof(status_display), "Status: NA");
             lv_label_set_text(guider_ui.screen_label_59, status_display);
-            // Set text color to red (0xFF0000)
-            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
-            printf("NFC Card Status: Rejected (red)\n");
-        }
-        // Unknown or invalid status
-        else {
-            lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
-            // Set text color to gray/white (0xDCD1E5 - same as default)
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-            printf("NFC Card Status: Unknown (%s)\n", card_status);
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
-        // Set text color to gray/white (default)
+        snprintf(status_display, sizeof(status_display), "Status: NA");
+        lv_label_set_text(guider_ui.screen_label_59, status_display);
         lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-        printf("NFC Card Status: NA (empty payload)\n");
     }
 
   } else if (strcmp(topic, "everest_api/evse_manager_1/var/powermeter") == 0) {
@@ -1494,7 +1412,7 @@ void get_mqtt_state_for_evse()
         "everest_external/nodered/1/sigboard/connection_type",
         "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
         // "everest_external/nodered/1/nfc/card_type",
-        "everest_external/nodered/1/nfc/card_status",
+        // "everest_external/nodered/1/nfc/card_status",
         "everest_api/evse_manager_1/var/powermeter"
     };
 
