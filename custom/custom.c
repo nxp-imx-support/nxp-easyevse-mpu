@@ -506,6 +506,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             //   printf("\n>>> Session end already processed, skipping: %s <<<\n\n", 
             //          (char *)message->payload);
               lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
+              lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+              lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
               return 1;
@@ -561,6 +563,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
+          // Reset NFC Card UID and Type (always, regardless of session state)
+          lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+          lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
           char string_time_out[20];
           char diff_time[20];
 
@@ -644,6 +649,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             lv_label_set_text(guider_ui.screen_label_25, "0");
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
             lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+            lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
           }
@@ -1058,8 +1065,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
   } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
       char *payload_str = (char *)message->payload;
     char uid_display[64];
+    char type_display[64];
     
-    // Find "value" field in id_token
+    // Find "value" field in id_token for UID
     char *value_start = strstr(payload_str, "\"value\":");
     
     if (value_start != NULL) {
@@ -1111,105 +1119,155 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         snprintf(uid_display, sizeof(uid_display), "UID: NA");
     }
     
-    lv_label_set_text(guider_ui.screen_label_57, uid_display);   
-  } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_type") == 0) {
-    char type_display[64];
+    lv_label_set_text(guider_ui.screen_label_57, uid_display);
     
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char *card_type = (char *)message->payload;
+    // Find "type" field in id_token for Card Type
+    char *type_start = strstr(payload_str, "\"type\":");
+    
+    if (type_start != NULL) {
+        type_start += 7;  // Skip past "type":
         
-        // Check for MIFARE Classic
-        if (strcasestr(card_type, "MIFARE Classic") != NULL ||
-            strcasestr(card_type, "MIFAREClassic") != NULL ||
-            strcasestr(card_type, "MIFARE_Classic") != NULL ||
-            strcasestr(card_type, "MFC") != NULL ||
-            strcasestr(card_type, "Classic") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: MIFARE Classic");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: MIFARE Classic\n");
+        // Skip whitespace and opening quote
+        while (*type_start == ' ' || *type_start == '\t' || *type_start == '"') {
+            type_start++;
         }
-        // Check for MIFARE Ultralight
-        else if (strcasestr(card_type, "MIFARE Ultralight") != NULL ||
-                  strcasestr(card_type, "MIFAREUltralight") != NULL ||
-                  strcasestr(card_type, "MIFARE_Ultralight") != NULL ||
-                  strcasestr(card_type, "MFU") != NULL ||
-                  strcasestr(card_type, "Ultralight") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: MIFARE Ultralight");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: MIFARE Ultralight\n");
-        }
-        // Check for MIFARE DESFire
-        else if (strcasestr(card_type, "MIFARE DESFire") != NULL ||
-                  strcasestr(card_type, "MIFAREDESFire") != NULL ||
-                  strcasestr(card_type, "MIFARE_DESFire") != NULL ||
-                  strcasestr(card_type, "DESFire") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: MIFARE DESFire");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: MIFARE DESFire\n");
-        }
-        // Check for NTAG213
-        else if (strcasestr(card_type, "NTAG213") != NULL ||
-                  strcasestr(card_type, "NTAG 213") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: NTAG213");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: NTAG213\n");
-        }
-        // Check for NTAG215
-        else if (strcasestr(card_type, "NTAG215") != NULL ||
-                  strcasestr(card_type, "NTAG 215") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: NTAG215");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: NTAG215\n");
-        }
-        // Check for NTAG216
-        else if (strcasestr(card_type, "NTAG216") != NULL ||
-                  strcasestr(card_type, "NTAG 216") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: NTAG216");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: NTAG216\n");
-        }
-        // Check for generic NTAG
-        else if (strcasestr(card_type, "NTAG") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: NTAG");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: NTAG (generic)\n");
-        }
-        // Check for ISO14443A
-        else if (strcasestr(card_type, "ISO14443A") != NULL ||
-                  strcasestr(card_type, "ISO 14443A") != NULL ||
-                  strcasestr(card_type, "ISO-14443A") != NULL ||
-                  strcasestr(card_type, "14443A") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: ISO14443A");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: ISO14443A\n");
-        }
-        // Check for ISO14443B
-        else if (strcasestr(card_type, "ISO14443B") != NULL ||
-                  strcasestr(card_type, "ISO 14443B") != NULL ||
-                  strcasestr(card_type, "ISO-14443B") != NULL ||
-                  strcasestr(card_type, "14443B") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: ISO14443B");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: ISO14443B\n");
-        }
-        // Check for ISO15693
-        else if (strcasestr(card_type, "ISO15693") != NULL ||
-                  strcasestr(card_type, "ISO 15693") != NULL ||
-                  strcasestr(card_type, "ISO-15693") != NULL ||
-                  strcasestr(card_type, "15693") != NULL) {
-            snprintf(type_display, sizeof(type_display), "Type: ISO15693");
-            lv_label_set_text(guider_ui.screen_label_58, type_display);
-            printf("NFC Card Type: ISO15693\n");
-        }
-        // Unknown or invalid card type
-        else {
-            lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-            printf("NFC Card Type: Unknown (%s)\n", card_type);
+        
+        // Find closing quote
+        char *type_end = strchr(type_start, '"');
+        
+        if (type_end != NULL && (type_end - type_start) > 0) {
+            int type_len = type_end - type_start;
+            char card_type[64];
+            strncpy(card_type, type_start, type_len);
+            card_type[type_len] = '\0';
+            
+            // Check for known card types
+            if (strcasecmp(card_type, "Local") == 0) {
+                snprintf(type_display, sizeof(type_display), "Type: Local");
+            } else if (strcasecmp(card_type, "ISO14443") == 0 || 
+                       strcasestr(card_type, "14443") != NULL) {
+                snprintf(type_display, sizeof(type_display), "Type: ISO14443");
+            } else if (strcasestr(card_type, "MIFARE") != NULL) {
+                snprintf(type_display, sizeof(type_display), "Type: MIFARE");
+            } else if (strcasestr(card_type, "NTAG") != NULL) {
+                snprintf(type_display, sizeof(type_display), "Type: NTAG");
+            } else if (strcasecmp(card_type, "Central") == 0) {
+                snprintf(type_display, sizeof(type_display), "Type: Central");
+            } else if (strcasecmp(card_type, "eMAID") == 0) {
+                snprintf(type_display, sizeof(type_display), "Type: eMAID");
+            } else if (strcasecmp(card_type, "ISO15693") == 0 || 
+                       strcasestr(card_type, "15693") != NULL) {
+                snprintf(type_display, sizeof(type_display), "Type: ISO15693");
+            } else {
+                // Display the raw type value if unknown
+                snprintf(type_display, sizeof(type_display), "Type: %s", card_type);
+            }
+        } else {
+            snprintf(type_display, sizeof(type_display), "Type: NA");
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-        printf("NFC Card Type: NA (empty payload)\n");
+        snprintf(type_display, sizeof(type_display), "Type: NA");
     }
+    
+    lv_label_set_text(guider_ui.screen_label_58, type_display);  
+  // } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_type") == 0) {
+  //   char type_display[64];
+    
+  //   if (message->payloadlen > 0 && message->payload != NULL) {
+  //       char *card_type = (char *)message->payload;
+        
+  //       // Check for MIFARE Classic
+  //       if (strcasestr(card_type, "MIFARE Classic") != NULL ||
+  //           strcasestr(card_type, "MIFAREClassic") != NULL ||
+  //           strcasestr(card_type, "MIFARE_Classic") != NULL ||
+  //           strcasestr(card_type, "MFC") != NULL ||
+  //           strcasestr(card_type, "Classic") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE Classic");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: MIFARE Classic\n");
+  //       }
+  //       // Check for MIFARE Ultralight
+  //       else if (strcasestr(card_type, "MIFARE Ultralight") != NULL ||
+  //                 strcasestr(card_type, "MIFAREUltralight") != NULL ||
+  //                 strcasestr(card_type, "MIFARE_Ultralight") != NULL ||
+  //                 strcasestr(card_type, "MFU") != NULL ||
+  //                 strcasestr(card_type, "Ultralight") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE Ultralight");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: MIFARE Ultralight\n");
+  //       }
+  //       // Check for MIFARE DESFire
+  //       else if (strcasestr(card_type, "MIFARE DESFire") != NULL ||
+  //                 strcasestr(card_type, "MIFAREDESFire") != NULL ||
+  //                 strcasestr(card_type, "MIFARE_DESFire") != NULL ||
+  //                 strcasestr(card_type, "DESFire") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: MIFARE DESFire");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: MIFARE DESFire\n");
+  //       }
+  //       // Check for NTAG213
+  //       else if (strcasestr(card_type, "NTAG213") != NULL ||
+  //                 strcasestr(card_type, "NTAG 213") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: NTAG213");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: NTAG213\n");
+  //       }
+  //       // Check for NTAG215
+  //       else if (strcasestr(card_type, "NTAG215") != NULL ||
+  //                 strcasestr(card_type, "NTAG 215") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: NTAG215");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: NTAG215\n");
+  //       }
+  //       // Check for NTAG216
+  //       else if (strcasestr(card_type, "NTAG216") != NULL ||
+  //                 strcasestr(card_type, "NTAG 216") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: NTAG216");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: NTAG216\n");
+  //       }
+  //       // Check for generic NTAG
+  //       else if (strcasestr(card_type, "NTAG") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: NTAG");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: NTAG (generic)\n");
+  //       }
+  //       // Check for ISO14443A
+  //       else if (strcasestr(card_type, "ISO14443A") != NULL ||
+  //                 strcasestr(card_type, "ISO 14443A") != NULL ||
+  //                 strcasestr(card_type, "ISO-14443A") != NULL ||
+  //                 strcasestr(card_type, "14443A") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: ISO14443A");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: ISO14443A\n");
+  //       }
+  //       // Check for ISO14443B
+  //       else if (strcasestr(card_type, "ISO14443B") != NULL ||
+  //                 strcasestr(card_type, "ISO 14443B") != NULL ||
+  //                 strcasestr(card_type, "ISO-14443B") != NULL ||
+  //                 strcasestr(card_type, "14443B") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: ISO14443B");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: ISO14443B\n");
+  //       }
+  //       // Check for ISO15693
+  //       else if (strcasestr(card_type, "ISO15693") != NULL ||
+  //                 strcasestr(card_type, "ISO 15693") != NULL ||
+  //                 strcasestr(card_type, "ISO-15693") != NULL ||
+  //                 strcasestr(card_type, "15693") != NULL) {
+  //           snprintf(type_display, sizeof(type_display), "Type: ISO15693");
+  //           lv_label_set_text(guider_ui.screen_label_58, type_display);
+  //           printf("NFC Card Type: ISO15693\n");
+  //       }
+  //       // Unknown or invalid card type
+  //       else {
+  //           lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+  //           printf("NFC Card Type: Unknown (%s)\n", card_type);
+  //       }
+  //   } else {
+  //       lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+  //       printf("NFC Card Type: NA (empty payload)\n");
+  //   }
   // ADD THIS HANDLER FOR NFC CARD STATUS
   } else if (strcmp(topic, "everest_external/nodered/1/nfc/card_status") == 0) {
     char status_display[32];
@@ -1435,7 +1493,7 @@ void get_mqtt_state_for_evse()
         "everest_external/nodered/1/iso15118/direction",
         "everest_external/nodered/1/sigboard/connection_type",
         "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
-        "everest_external/nodered/1/nfc/card_type",
+        // "everest_external/nodered/1/nfc/card_type",
         "everest_external/nodered/1/nfc/card_status",
         "everest_api/evse_manager_1/var/powermeter"
     };
