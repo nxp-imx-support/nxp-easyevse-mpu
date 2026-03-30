@@ -49,12 +49,41 @@
 #define TIMEOUT     10000L 
 
 /**********************
+ *  MQTT TOPICS ARRAY
+ *********************/
+// Centralized MQTT topics - used for initial subscription and reconnection
+static const char* MQTT_TOPICS[] = {
+    "everest_external/nodered/1/powermeter/totalKWattHr",
+    "everest_external/nodered/1/powermeter/totalKw",
+    "everest_external/nodered/1/state/temperature",
+    "everest_external/nodered/1/state/state_string",
+    "everest_api/ocpp/var/connection_status",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
+    "everest_external/nodered/1/ev/ev_id",
+    "everest_external/nodered/1/ev/battery_level",
+    "everest_external/nodered/1/iso15118/mode",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
+    "everest_external/nodered/1/iso15118/voltage",
+    "everest_external/nodered/1/iso15118/direction",
+    "everest_external/nodered/1/sigboard/connection_type",
+    "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
+    // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
+    // "everest_external/nodered/1/nfc/card_status",    // Commented - not currently used
+    "everest_api/evse_manager_1/var/powermeter"
+};
+
+static const int MQTT_TOPICS_COUNT = sizeof(MQTT_TOPICS) / sizeof(MQTT_TOPICS[0]);
+/**********************
  *      TYPEDEFS
  **********************/
 
 /**********************
  *  STATIC PROTOTYPES
  **********************/
+
+// MQTT helper function prototype
+int subscribe_to_mqtt_topics(void);
+int unsubscribe_from_mqtt_topics(void);
 
 /**********************
  *  STATIC VARIABLES
@@ -94,6 +123,13 @@ static bool session_end_processed = false;
 // Add these global variables at the top
 static time_t last_mqtt_message_time = 0;
 static const int MQTT_TIMEOUT_SECONDS = 2;  // Show overlay if no MQTT for 2+ seconds
+
+static bool mqtt_connected = false;
+static lv_timer_t * mqtt_reconnect_timer = NULL;
+
+// Add subscription tracking
+static bool mqtt_topics_subscribed = false;
+static unsigned long mqtt_reconnection_count = 0;
 
 
 
@@ -324,8 +360,100 @@ static void mqtt_watchdog_timer_cb(lv_timer_t * timer)
     // If no MQTT message received for MQTT_TIMEOUT_SECONDS, show cont_4
     if (last_mqtt_message_time > 0 && 
         difftime(current_time, last_mqtt_message_time) > MQTT_TIMEOUT_SECONDS) {
+        
+        // Only show overlay if not already shown
+        if (!lv_obj_has_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN)) {
+            return;  // Already showing overlay
+        }
+        
         lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
-        printf("MQTT timeout - showing cont_4 overlay (EVerest not running)\n");
+        printf("MQTT timeout - showing cont_4 overlay (no messages for %d+ seconds)\n", MQTT_TIMEOUT_SECONDS);
+        mqtt_connected = false;  // Mark as disconnected
+    }
+}
+
+
+void connectionLost(void *context, char *cause) {
+    printf("\n=== MQTT Connection Lost ===\n");
+    printf("Cause: %s\n", cause ? cause : "Unknown");
+    
+    // CRITICAL: Unsubscribe from all topics BEFORE marking as disconnected
+    // This prevents duplicate subscriptions on reconnect
+    if (mqtt_connected) {
+        printf("Cleaning up subscriptions...\n");
+        unsubscribe_from_mqtt_topics();
+    }
+    
+    mqtt_connected = false;
+    last_mqtt_message_time = 0;
+    
+    lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+    printf("Showing cont_4 overlay (connection lost)\n");
+}
+
+
+// Add MQTT message processing timer
+static void mqtt_process_timer_cb(lv_timer_t * timer)
+{
+    if (mqtt_connected) {
+        // Process any pending MQTT messages
+        // This ensures messages are handled even if the main loop is busy
+        MQTTClient_yield();
+    }
+}
+
+static void mqtt_reconnect_timer_cb(lv_timer_t * timer)
+{
+    static unsigned long reconnect_attempts = 0;
+    
+    if (!mqtt_connected) {
+        reconnect_attempts++;
+        printf("Attempting MQTT reconnection (attempt #%lu)...\n", reconnect_attempts);
+        
+        MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+        conn_opts.connectTimeout = 3;
+        conn_opts.keepAliveInterval = 60;
+        conn_opts.retryInterval = 5;
+        conn_opts.cleansession = 1;
+        
+        int rc = MQTTClient_connect(client, &conn_opts);
+        
+        if (rc == MQTTCLIENT_SUCCESS) {
+            mqtt_reconnection_count++;
+            printf("✓ MQTT reconnected successfully! (reconnection #%lu)\n", mqtt_reconnection_count);
+            mqtt_connected = true;
+            reconnect_attempts = 0;
+            
+            printf("Ensuring clean subscription state...\n");
+            unsubscribe_from_mqtt_topics();
+            
+            usleep(50000);
+            
+            printf("Re-subscribing to all topics...\n");
+            int subscribed = subscribe_to_mqtt_topics();
+            
+            if (subscribed == MQTT_TOPICS_COUNT) {
+                printf("✓ All topics subscribed successfully\n");
+            } else {
+                printf("⚠ Warning: Only %d/%d topics subscribed\n", subscribed, MQTT_TOPICS_COUNT);
+            }
+            
+            printf("Reconnected - waiting for EVerest messages...\n");
+            
+        } else {
+            printf("✗ MQTT reconnection failed (code %d), will retry in 10 seconds\n", rc);
+            
+            if (reconnect_attempts > 20) {
+                printf("⚠ Too many failed attempts (%lu), recreating MQTT client...\n", reconnect_attempts);
+                
+                MQTTClient_destroy(&client);
+                MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL);
+                MQTTClient_setCallbacks(client, NULL, connectionLost, messageArrived, NULL);
+                
+                reconnect_attempts = 0;
+                printf("MQTT client recreated\n");
+            }
+        }
     }
 }
 
@@ -343,6 +471,12 @@ void custom_init(lv_ui *ui)
 
   // Create watchdog timer to check MQTT activity every 1 second
   lv_timer_t * mqtt_watchdog = lv_timer_create(mqtt_watchdog_timer_cb, 1000, NULL);
+  
+  // Create MQTT message processing timer (every 100ms)
+  lv_timer_t * mqtt_process = lv_timer_create(mqtt_process_timer_cb, 100, NULL);
+  
+  // Create MQTT reconnection timer (every 10 seconds)
+  mqtt_reconnect_timer = lv_timer_create(mqtt_reconnect_timer_cb, 10000, NULL);
 
   // setenv("LD_LIBRARY_PATH","/usr/local/lib64",1);
   const char *location = getenv("LOCATION");
@@ -457,10 +591,6 @@ void update_time(){
     strcpy(am_pm, "AM");
   }
   
-//   printf("DEBUG: hour_24 = %d\n", hour_24);
-//   printf("DEBUG: am_pm string = '%s'\n", am_pm);
-//   printf("DEBUG: am_pm[0] = '%c', am_pm[1] = '%c'\n", am_pm[0], am_pm[1]);
-  
   // Convert to 12-hour format
   int hour_12 = hour_24 % 12;
   if (hour_12 == 0) hour_12 = 12; // Handle midnight and noon
@@ -469,8 +599,6 @@ void update_time(){
   sprintf(minutes, "%02d", timeinfo->tm_min);
   sprintf(seconds, "%02d", timeinfo->tm_sec);
   
-//   printf("Current local time and date: %s", asctime(timeinfo));
-//   printf("Time: %s:%s:%s %s (24h: %d)\n", hour, minutes, seconds, am_pm, hour_24);
 }
 
 
@@ -483,7 +611,41 @@ void set_screen_digital_clock_1(){
 }
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
-    // printf("Received: %s -> %.*s\n", topic, message->payloadlen, (char *)message->payload);
+
+    static unsigned long msg_count = 0;
+    static time_t last_rate_check = 0;
+    static unsigned long last_msg_count = 0;
+    
+    msg_count++;
+    
+    time_t now = time(NULL);
+    if (now - last_rate_check >= 30) {
+        unsigned long msgs_in_period = msg_count - last_msg_count;
+        unsigned long msg_rate = msgs_in_period / 30;
+        
+        printf("MQTT Stats: %lu msg/s | Total: %lu | Reconnections: %lu\n", 
+               msg_rate, msg_count, mqtt_reconnection_count);
+        
+        if (msg_rate > 100) {
+            printf("WARNING: High message rate! Possible duplicate subscriptions!\n");
+        }
+        
+        last_rate_check = now;
+        last_msg_count = msg_count;
+    }
+
+    // Defensive checks
+    if (message == NULL || topic == NULL || message->payload == NULL) {
+        printf("ERROR: NULL message or topic received!\n");
+        return 1;
+    }
+    
+    if (message->payloadlen <= 0 || message->payloadlen > 10000) {
+        printf("ERROR: Invalid payload length: %d\n", message->payloadlen);
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
 
     // Update last message time
     last_mqtt_message_time = time(NULL);
@@ -503,8 +665,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
           // Skip if already processed to prevent duplicate processing
           if (session_end_processed) {
-            //   printf("\n>>> Session end already processed, skipping: %s <<<\n\n", 
-            //          (char *)message->payload);
+
               lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
               lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
               lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
@@ -518,37 +679,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // Mark as processed immediately
           session_end_processed = true;
           
-        //   printf("\n========================================\n");
-        //   printf("=== SESSION END: %s (PROCESSING) ===\n", (char *)message->payload);
-        //   printf("========================================\n");
-          
           // Get current system time
           time_t rawtime;
           struct tm * timeinfo;
           time(&rawtime);
           timeinfo = localtime(&rawtime);
-        //   printf("System time NOW: %02d:%02d:%02d\n", 
-        //          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-          
-        //   printf("\nSession state:\n");
-        //   printf("  pause_time_captured = %d\n", pause_time_captured);
-        //   printf("  start_time_captured = %d\n", start_time_captured);
-        //   printf("  is_session_started = %d\n", is_session_started);
-          
-        //   if (pause_time_captured) {
-        //       printf("\nStored pauseTime:\n");
-        //       printf("  %02d:%02d:%02d %s\n", 
-        //              pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
-        //              (pauseTime.ampm == 'A') ? "AM" : "PM");
-        //   }
-          
-        //   if (start_time_captured) {
-        //       printf("\nStored startTime:\n");
-        //       printf("  %02d:%02d:%02d %s\n", 
-        //              startTime.hours, startTime.minutes, startTime.seconds,
-        //              (startTime.ampm == 'A') ? "AM" : "PM");
-        //   }
-        //   printf("========================================\n\n");
           
           active_session = false;
           start_time_captured = false;  // Keep this here
@@ -573,32 +708,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           char string_time_out[20];
           char diff_time[20];
 
-            //   printf("\n========================================\n");
-            //   printf("=== CALCULATING END TIME ===\n");
-            //   printf("========================================\n");
-            //   printf("pause_time_captured = %d\n", pause_time_captured);
-
       // Use pause time as end time if session was paused, otherwise use current time
       if (pause_time_captured) {
           endTime = pauseTime;
-        //   printf("\n✓ Using PAUSE time as end time\n");
-        //   printf("  pauseTime: %02d:%02d:%02d %s\n", 
-        //          pauseTime.hours, pauseTime.minutes, pauseTime.seconds,
-        //          (pauseTime.ampm == 'A') ? "AM" : "PM");
-        //   printf("  endTime: %02d:%02d:%02d %s\n", 
-        //          endTime.hours, endTime.minutes, endTime.seconds,
-        //          (endTime.ampm == 'A') ? "AM" : "PM");
+
       } else {
           set_screen_digital_clock_1();
           endTime.hours = atoi(hour);
           endTime.minutes = atoi(minutes);
           endTime.seconds = atoi(seconds);
           endTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
-        //   printf("\n✗ Using CURRENT time as end time\n");
-        //   printf("  Current: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
-        //   printf("  endTime: %02d:%02d:%02d %s\n", 
-        //          endTime.hours, endTime.minutes, endTime.seconds,
-        //          (endTime.ampm == 'A') ? "AM" : "PM");
+   
       }
   
       // Calculate duration
@@ -615,27 +735,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     diffTime.hours = 00;
   }
 
-//   printf("\nDuration calculation:\n");
-//   printf("  startTime: %02d:%02d:%02d %s (%d seconds)\n", 
-//          startTime.hours, startTime.minutes, startTime.seconds,
-//          (startTime.ampm == 'A') ? "AM" : "PM", startTimeInSeconds);
-//   printf("  endTime: %02d:%02d:%02d %s (%d seconds)\n", 
-//          endTime.hours, endTime.minutes, endTime.seconds,
-//          (endTime.ampm == 'A') ? "AM" : "PM", endTimeInSeconds);
-//   printf("  Duration: %02d:%02d:%02d (%d seconds)\n", 
-//          diffTime.hours, diffTime.minutes, diffTime.seconds, diffInSeconds);
-          
   // Format end time string
   snprintf(string_time_out, sizeof(string_time_out), "%02d:%02d:%02d %s", 
            endTime.hours, endTime.minutes, endTime.seconds,
            (endTime.ampm == 'A') ? "AM" : "PM");
   snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
            diffTime.hours, diffTime.minutes, diffTime.seconds);
-
-//   printf("\nFormatted strings:\n");
-//   printf("  End time (label_30): %s\n", string_time_out);
-//   printf("  Duration (label_31): %s\n", diff_time);
-//   printf("========================================\n\n");
 
   lv_label_set_text(guider_ui.screen_label_30, string_time_out);
   lv_label_set_text(guider_ui.screen_label_31, diff_time);
@@ -661,11 +766,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("Session values reset (is_session_started was true)\n");
           }
 
-        //   printf("\n=== RESETTING FLAGS ===\n");
-        //   printf("Before reset - pause_time_captured = %d\n", pause_time_captured);
           pause_time_captured = false;
-        //   printf("After reset - pause_time_captured = %d\n", pause_time_captured);
-        //   printf("=======================\n\n");
         // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
       }
       // Capture pause time (handles both manual and automatic pause)
@@ -676,7 +777,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           pauseTime.seconds = atoi(seconds);
           pauseTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
           pause_time_captured = true;
-        //   printf("Pause time captured: %s:%s:%s %s\n", hour, minutes, seconds, am_pm);
       }
 
       // Existing grouped condition (keep as is)
@@ -783,13 +883,21 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       
     } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
       // lv_label_set_text(guider_ui.screen_label_25, topic);
-      char *delim = ".";
-      char before_dot[20], after_dot[20];
-      char *token;
-      token = strtok((char *)message->payload, delim);
-      strcpy(before_dot, token);
+      char payload_copy[256];
+      int len = message->payloadlen < 255 ? message->payloadlen : 255;
+      memcpy(payload_copy, message->payload, len);
+      payload_copy[len] = '\0';
       
-      lv_label_set_text(guider_ui.screen_label_4, token);
+      char *delim = ".";
+      char before_dot[20];
+      char *token;
+      token = strtok(payload_copy, delim);  // ✅ Modify copy, not original
+      
+      if (token != NULL) {
+          strncpy(before_dot, token, 19);
+          before_dot[19] = '\0';
+          lv_label_set_text(guider_ui.screen_label_4, before_dot);
+      }
     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
       // lv_label_set_text(guider_ui.screen_label_25, topic);
       //move to increare_batery_level 
@@ -822,6 +930,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         //   printf("Internet connection is not available.\n");
       } 
     increase_battery_level();
+
 
     }else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
     //   printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
@@ -866,36 +975,58 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id") == 0) {
       char evse_id_display[128];
     
-      // Check if payload is empty or null
+      // Debug: Show raw payload
+      printf("EVSE ID topic received, payload length: %d\n", message->payloadlen);
       if (message->payloadlen > 0 && message->payload != NULL) {
+          printf("Raw payload: '%.*s'\n", message->payloadlen, (char *)message->payload);
+      }
+      
+      // Check if payload is valid
+      if (message->payloadlen > 0 && message->payloadlen < 256 && message->payload != NULL) {
           char *payload_str = (char *)message->payload;
           
-          // The payload is a simple string value like "RO*NXP*E1234567*1"
-          // Remove quotes if present
+          // Copy payload to safe buffer
+          char payload_copy[256];
+          int copy_len = message->payloadlen < 255 ? message->payloadlen : 255;
+          memcpy(payload_copy, payload_str, copy_len);
+          payload_copy[copy_len] = '\0';
+          
+          // Remove quotes and whitespace
           char evse_id[128] = {0};
           int idx = 0;
           
-          for (int i = 0; i < message->payloadlen && i < 127; i++) {
-              char c = payload_str[i];
-              // Skip quotes
-              if (c != '"' && c != '\0') {
+          for (int i = 0; i < copy_len && idx < 127; i++) {
+              char c = payload_copy[i];
+              // Skip quotes, whitespace, newlines, carriage returns
+              if (c != '"' && c != '\'' && c != ' ' && c != '\t' && 
+                  c != '\n' && c != '\r' && c != '\0') {
                   evse_id[idx++] = c;
               }
           }
           evse_id[idx] = '\0';
           
+          // Validate EVSE ID format (should contain at least one '*' separator)
+          // Format: Country*Operator*ID*Connector (e.g., "RO*NXP*E1234567*1")
+          bool has_separator = (strchr(evse_id, '*') != NULL);
+          
           // Check if we got a valid EVSE ID
-          if (strlen(evse_id) > 0) {
+          if (strlen(evse_id) > 0 && has_separator) {
               snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", evse_id);
               lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
-              printf("EVSE ID: %s\n", evse_id);
+              printf("✓ EVSE ID set: %s\n", evse_id);
+          } else if (strlen(evse_id) > 0) {
+              // Got data but doesn't look like valid EVSE ID format
+              snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", evse_id);
+              lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
+              printf("⚠ EVSE ID set (non-standard format): %s\n", evse_id);
           } else {
               lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
-              printf("EVSE ID: NA (empty after parsing)\n");
+              printf("✗ EVSE ID: NA (empty after parsing)\n");
           }
       } else {
           lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
-          printf("EVSE ID: NA (empty payload)\n");
+          printf("✗ EVSE ID: NA (invalid payload - len=%d, ptr=%p)\n", 
+                message->payloadlen, message->payload);
       }
     
     } else if (strcmp(topic, "everest_external/nodered/1/ev/ev_id") == 0) {
@@ -1316,12 +1447,69 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
   MQTTClient_free(topic);
   return 1;
 }
+
+
+// Helper function to unsubscribe from all MQTT topics
+// Returns: number of successful unsubscriptions
+int unsubscribe_from_mqtt_topics() {
+    int success_count = 0;
+    
+    printf("Unsubscribing from %d MQTT topics...\n", MQTT_TOPICS_COUNT);
+    
+    for (int i = 0; i < MQTT_TOPICS_COUNT; i++) {
+        int rc = MQTTClient_unsubscribe(client, MQTT_TOPICS[i]);
+        if (rc == MQTTCLIENT_SUCCESS) {
+            success_count++;
+        } else {
+            printf("  ✗ Failed to unsubscribe from %s: %d\n", MQTT_TOPICS[i], rc);
+        }
+    }
+    
+    printf("Successfully unsubscribed from %d/%d topics\n", success_count, MQTT_TOPICS_COUNT);
+    mqtt_topics_subscribed = false;
+    
+    return success_count;
+}
+
+int subscribe_to_mqtt_topics() {
+    // Safety check: prevent duplicate subscriptions
+    if (mqtt_topics_subscribed) {
+        printf("⚠ WARNING: Topics already subscribed! Unsubscribing first...\n");
+        unsubscribe_from_mqtt_topics();
+        mqtt_topics_subscribed = false;
+    }
+    
+    int success_count = 0;
+    
+    printf("Subscribing to %d MQTT topics...\n", MQTT_TOPICS_COUNT);
+    
+    for (int i = 0; i < MQTT_TOPICS_COUNT; i++) {
+        int rc = MQTTClient_subscribe(client, MQTT_TOPICS[i], QOS);
+        if (rc == MQTTCLIENT_SUCCESS) {
+            success_count++;
+        } else {
+            printf("  ✗ Failed to subscribe to %s: %d\n", MQTT_TOPICS[i], rc);
+        }
+    }
+    
+    printf("Successfully subscribed to %d/%d topics\n", success_count, MQTT_TOPICS_COUNT);
+    
+    if (success_count == MQTT_TOPICS_COUNT) {
+        mqtt_topics_subscribed = true;
+    }
+    
+    return success_count;
+}
+
 void get_mqtt_state_for_evse()
 {
   
   // lv_label_set_text(guider_ui.pageStatic_label_1, PAYLOAD);
+  // MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL); 
+  // MQTTClient_setCallbacks(client, NULL, NULL, messageArrived, NULL);
+
   MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL); 
-  MQTTClient_setCallbacks(client, NULL, NULL, messageArrived, NULL);
+  MQTTClient_setCallbacks(client, NULL, connectionLost, messageArrived, NULL);
 
   MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer; 
   conn_opts.connectTimeout = 30;
@@ -1341,122 +1529,18 @@ void get_mqtt_state_for_evse()
     sleep(2);
     retry_count++;
   }
+
   if (rc != MQTTCLIENT_SUCCESS) {
       printf("Failed to connect to broker\n");
+      mqtt_connected = false;
       return;
   } else {
       printf("Connected to MQTT broker ...\n");
+      mqtt_connected = true;
      // lv_label_set_text(guider_ui.pageStatic_label_1, "");
   }
-
-  /////////////////////////Old subscriptions START
-  /* Introduced delay to avoid subscription lost
-     due to Timing/race conditoin issue
-   */
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKWattHr", QOS);
-// //   printf("Subscribe totalKWattHr: %d\n", rc);
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/powermeter/totalKw", QOS);
-// //   printf("Subscribe totalKw: %d\n", rc);
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/temperature", QOS);
-// //   printf("Subscribe temperature: %d\n", rc);
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/state/state_string", QOS);
-// //   printf("Subscribe state_string: %d\n", rc);
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_api/ocpp/var/connection_status", QOS);
-// //   printf("Subscribe CSMS connection_status: %d\n", rc);
-// //   printf("Subscribe csms_status: %d\n", rc);
-//   // ADD THIS FOR EVSE ID
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id", QOS);
-// //   printf("Subscribe evse_id: %d\n", rc);
-//   // ADD THIS FOR EV ID
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/ev_id", QOS);
-// //   printf("Subscribe ev_id: %d\n", rc);
-//   // ADD THIS FOR BATTERY LEVEL
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/ev/battery_level", QOS);
-// //   printf("Subscribe battery_level: %d\n", rc);
-//   // ADD THIS FOR ISO 15118 MODE
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/mode", QOS);
-// //   printf("Subscribe iso15118_mode: %d\n", rc);
-//   // ADD THIS FOR ISO 15118 PROTOCOL
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol", QOS);
-// //   printf("Subscribe iso15118_protocol: %d\n", rc);
-//   // ADD THIS FOR ISO 15118 VOLTAGE
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/voltage", QOS);
-// //   printf("Subscribe iso15118_voltage: %d\n", rc);
-//   // ADD THIS FOR ISO 15118 CHARGING DIRECTION
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/iso15118/direction", QOS);
-// //   printf("Subscribe iso15118_direction: %d\n", rc);
-//   // ADD THIS FOR SIGBOARD CONNECTION TYPE
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/sigboard/connection_type", QOS);
-// //   printf("Subscribe sigboard_connection_type: %d\n", rc);
-//   // ADD THIS FOR NFC CARD UID
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status", QOS);
-// //   printf("Subscribe nfc_card_uid: %d\n", rc);
-//   // ADD THIS FOR NFC CARD TYPE
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_type", QOS);
-// //   printf("Subscribe nfc_card_type: %d\n", rc);
-//   // ADD THIS FOR NFC CARD STATUS
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_external/nodered/1/nfc/card_status", QOS);
-// //   printf("Subscribe nfc_card_status: %d\n", rc);
-//   // ADD THIS FOR MAX CURRENT
-//   usleep(100000); // 100ms delay
-//   rc = MQTTClient_subscribe(client, "everest_api/evse_manager_1/var/powermeter", QOS);
-//   printf("Subscribe powermeter: %d\n", rc);
-
-  // MQTTClient_subscribe(client, "everest_external/nodered/1/cmd/set_max_current", QOS); 
-
-  // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
-  // set_max_temp();
-  /////////////////////////Old subscriptions END
-// *******************************************************************************************
-
-  /////////////////////////replace subscription starts
-    // Subscribe to all topics (no delays needed - MQTT client handles queuing)
-    const char* topics[] = {
-        "everest_external/nodered/1/powermeter/totalKWattHr",
-        "everest_external/nodered/1/powermeter/totalKw",
-        "everest_external/nodered/1/state/temperature",
-        "everest_external/nodered/1/state/state_string",
-        "everest_api/ocpp/var/connection_status",
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
-        "everest_external/nodered/1/ev/ev_id",
-        "everest_external/nodered/1/ev/battery_level",
-        "everest_external/nodered/1/iso15118/mode",
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
-        "everest_external/nodered/1/iso15118/voltage",
-        "everest_external/nodered/1/iso15118/direction",
-        "everest_external/nodered/1/sigboard/connection_type",
-        "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
-        // "everest_external/nodered/1/nfc/card_type",
-        // "everest_external/nodered/1/nfc/card_status",
-        "everest_api/evse_manager_1/var/powermeter"
-    };
-
-    int topic_count = sizeof(topics) / sizeof(topics[0]);
-
-    for (int i = 0; i < topic_count; i++) {
-        rc = MQTTClient_subscribe(client, topics[i], QOS);
-        if (rc != MQTTCLIENT_SUCCESS) {
-            printf("Failed to subscribe to %s: %d\n", topics[i], rc);
-        }
-    }
-
-    printf("Subscribed to %d MQTT topics\n", topic_count);
+    // Topics are defined in MQTT_TOPICS array at the top of the file
+    subscribe_to_mqtt_topics();
 
   ////////////////////////replace subscription end
 }
