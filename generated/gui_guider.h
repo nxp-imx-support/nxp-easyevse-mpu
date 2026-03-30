@@ -67,6 +67,21 @@ typedef struct
 	lv_obj_t *screen_label_19;
 	lv_obj_t *screen_label_40;
 	lv_obj_t *screen_img_18;
+	lv_obj_t *screen_label_41;
+	lv_obj_t *screen_label_42;
+	lv_obj_t *screen_label_43;
+	lv_obj_t *screen_label_44;
+	lv_obj_t *screen_label_45;
+	lv_obj_t *screen_label_52;
+	lv_obj_t *screen_label_53;
+	lv_obj_t *screen_label_54;
+	lv_obj_t *screen_label_55;
+	lv_obj_t *screen_label_56;
+	lv_obj_t *screen_label_57;
+	lv_obj_t *screen_label_58;
+	lv_obj_t *screen_label_59;
+	lv_obj_t *screen_label_60;
+	lv_obj_t *screen_label_61;
 	lv_obj_t *screen_cont_3;
 	lv_obj_t *screen_label_14;
 	lv_obj_t *screen_img_9;
@@ -75,6 +90,8 @@ typedef struct
 	lv_obj_t *screen_label_30;
 	lv_obj_t *screen_label_31;
 	lv_obj_t *screen_label_13;
+	lv_obj_t *screen_cont_4;
+	lv_obj_t *screen_label_50;
 }lv_ui;
 
 typedef void (*ui_setup_scr_t)(lv_ui * ui);
@@ -112,13 +129,13 @@ void setup_scr_screen(lv_ui *ui);
 LV_IMG_DECLARE(_Car_Unplugged_0_alpha_1277x797);
 LV_IMG_DECLARE(_thermometeroutline_transparent_g_alpha_49x46);
 LV_IMG_DECLARE(_flashoutline_transparent_steel_blue_alpha_39x38);
-LV_IMG_DECLARE(_wifisharp_transparent_alpha_35x33);
+LV_IMG_DECLARE(_network_transparent_alpha_50x50);
 LV_IMG_DECLARE(_locationsharp_transparent_alpha_30x29);
 LV_IMG_DECLARE(_clouddone1_transparent_alpha_47x41);
 LV_IMG_DECLARE(_Car_Unplugged_alpha_1280x800);
 LV_IMG_DECLARE(_Car_plugged_alpha_1280x800);
 LV_IMG_DECLARE(_cloudofflinesharp_transparent_gray29_alpha_47x41);
-LV_IMG_DECLARE(_wifisharp_transparent_gray29_alpha_35x33);
+LV_IMG_DECLARE(_network_transparent_gray_alpha_50x50);
 LV_IMG_DECLARE(_Designer_Manual_Edit_alpha_210x210);
 LV_IMG_DECLARE(_pngwing_close_alpha_51x51);
 
@@ -136,7 +153,10 @@ LV_FONT_DECLARE(lv_font_arial_24)
 LV_FONT_DECLARE(lv_font_arial_75)
 LV_FONT_DECLARE(lv_font_arial_53)
 LV_FONT_DECLARE(lv_font_arial_21)
+LV_FONT_DECLARE(lv_font_arial_16)
+LV_FONT_DECLARE(lv_font_arial_13)
 LV_FONT_DECLARE(lv_font_arial_37)
+LV_FONT_DECLARE(lv_font_arial_94)
 
 
 #ifdef __cplusplus
