@@ -118,6 +118,7 @@ float mqtt_battery_level = -1.0f;  // -1 means no MQTT data available
 static bool start_time_captured = false;
 static bool pause_time_captured = false;
 static bool session_end_processed = false;
+
 // Time calculation code end
 
 // Add these global variables at the top
@@ -130,6 +131,45 @@ static lv_timer_t * mqtt_reconnect_timer = NULL;
 // Add subscription tracking
 static bool mqtt_topics_subscribed = false;
 static unsigned long mqtt_reconnection_count = 0;
+
+// ============================================
+// STATIC BUFFERS FOR LVGL LABELS (PREVENT MEMORY LEAK)
+// ============================================
+// Pre-allocated buffers reused for all label updates
+// This prevents LVGL from allocating new memory on every update (which causes 7MB/hour leak)
+static char label_state_buffer[64] = "Initializing...";
+static char label_energy_buffer[32] = "0.0 kWh";
+static char label_temp_buffer[16] = "0";
+static char label_power_buffer[16] = "0";
+static char label_battery_buffer[16] = "20.0";
+static char label_time_buffer[32] = "--:--:--";
+static char label_evse_id_buffer[128] = "EVSE ID: NA";
+static char label_ev_id_buffer[128] = "EV ID: NA";
+static char label_iso_mode_buffer[32] = "ISO Mode: NA";
+static char label_protocol_buffer[64] = "Protocol: NA";
+static char label_voltage_buffer[32] = "Voltage: NA";
+static char label_direction_buffer[32] = "Direction: NA";
+static char label_sigboard_buffer[32] = "Sigboard: NA";
+static char label_uid_buffer[64] = "UID: NA";
+static char label_card_type_buffer[64] = "Type: NA";
+static char label_card_status_buffer[64] = "Status: NA";
+static char label_current_buffer[32] = "0.0 A";
+static char label_duration_buffer[32] = "00:00:00";
+static char label_end_time_buffer[32] = "00:00:00 AM";
+static char label_ip_buffer[32] = "(No IP)";
+static char label_network_buffer[16] = "Unknown";
+static char label_location_buffer[64] = "NXP Plot 1";
+static char label_slider1_buffer[16] = "MAX: 0%";
+static char label_slider2_buffer[16] = "0%";
+
+
+// Helper macro to safely update labels without memory allocation
+#define UPDATE_LABEL_SAFE(label, buffer, text) \
+    do { \
+        strncpy(buffer, text, sizeof(buffer) - 1); \
+        buffer[sizeof(buffer) - 1] = '\0'; \
+        lv_label_set_text_static(label, buffer); \
+    } while(0)
 
 
 
@@ -280,8 +320,9 @@ static void network_status_timer_cb(lv_timer_t * timer)
     get_network_type(interface_name, network_type, sizeof(network_type));
     
     // Update both labels
-    lv_label_set_text(guider_ui.screen_label_41, ip_address);
-    lv_label_set_text(guider_ui.screen_label_45, network_type);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_41, label_ip_buffer, ip_address);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_45, label_network_buffer, network_type);
+
     
     // printf("Network status updated - IP: %s, Type: %s\n", ip_address, network_type);
 }
@@ -405,7 +446,7 @@ static void mqtt_process_timer_cb(lv_timer_t * timer)
 static void mqtt_reconnect_timer_cb(lv_timer_t * timer)
 {
     static unsigned long reconnect_attempts = 0;
-    
+    // return;
     if (!mqtt_connected) {
         reconnect_attempts++;
         printf("Attempting MQTT reconnection (attempt #%lu)...\n", reconnect_attempts);
@@ -482,55 +523,55 @@ void custom_init(lv_ui *ui)
   const char *location = getenv("LOCATION");
   if (location != NULL){
     printf("PATH: %s", location);
-    lv_label_set_text(guider_ui.screen_label_7, (char *)location);
-  }else{
-    lv_label_set_text(guider_ui.screen_label_7, "NXP Plot 1");
-  } 
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_7, label_location_buffer, (char *)location);
+	}else{
+			UPDATE_LABEL_SAFE(guider_ui.screen_label_7, label_location_buffer, "NXP Plot 1");
+	}
   
   // ADD THIS INITIALIZATION FOR EVSE ID
   // Initialize EVSE ID label with default "NA"
-  lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_43, label_evse_id_buffer, "EVSE ID: NA");
 //   printf("EVSE ID initialized to 'EVSE ID: NA'\n");
   
   // ADD THIS INITIALIZATION FOR EV ID
   // Initialize EV ID label with formatted default
-  lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
 //   printf("EV ID initialized to 'EV ID: NA'\n");
 
   // Initialize ISO 15118 Mode label
-  lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
 //   printf("ISO 15118 Mode initialized to: ISO Mode: NA\n");
   
   // Initialize ISO 15118 Protocol label
-  lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
 //   printf("ISO 15118 Protocol initialized to: Protocol: NA\n");
   
   // Initialize ISO 15118 Voltage label
-  lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_54, label_voltage_buffer, "Voltage: NA");
 //   printf("ISO 15118 Voltage initialized to: Voltage: NA\n");
   
   // Initialize ISO 15118 Charging Direction label
-  lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
 //   printf("ISO 15118 Direction initialized to: Direction: NA\n");
   // Initialize Sigboard Connection Type label
-  lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
 //   printf("Sigboard Connection initialized to: Sigboard: NA\n");
 
   // Initialize NFC Card UID label
-  lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
 //   printf("NFC Card UID initialized to: UID: NA\n");
 
   // Initialize NFC Card Type label
-  lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
 //   printf("NFC Card Type initialized to: Type: NA\n");
 
   // Initialize NFC Card Status label
-  lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
   lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
 //   printf("NFC Card Status initialized to: Status: NA\n");
 
   // Initialize Current L1 display
-  lv_label_set_text(guider_ui.screen_label_60, "0.0 A");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_60, label_current_buffer, "0.0 A");
 //   printf("Current L1 initialized to: 0.0 A\n");
 
 
@@ -563,12 +604,12 @@ void custom_init(lv_ui *ui)
     char network_type[16];
     
     get_machine_ip(ip_address, sizeof(ip_address), interface_name, sizeof(interface_name));
-    lv_label_set_text(guider_ui.screen_label_41, ip_address);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_41, label_ip_buffer, ip_address);
     // printf("Machine IP set to label_41: %s\n", ip_address);
     
     // Get and display network type
     get_network_type(interface_name, network_type, sizeof(network_type));
-    lv_label_set_text(guider_ui.screen_label_45, network_type);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_45, label_network_buffer, network_type);
     // printf("Network type set to label_45: %s\n", network_type);
     
     // Create timer to check network status every 5 seconds
@@ -610,15 +651,137 @@ void set_screen_digital_clock_1(){
   strcpy(screen_digital_clock_1_meridiem, am_pm);
 }
 
+#include <sys/resource.h>
+#include <time.h>
+
+void check_lvgl_memory() {
+    static long baseline = 0;
+    static long previous = 0;
+    static time_t start_time = 0;
+    static int check_count = 0;
+    
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    long current = usage.ru_maxrss;
+    time_t now = time(NULL);
+    
+    if (baseline == 0) {
+        baseline = current;
+        previous = current;
+        start_time = now;
+        printf("\n=== Memory Tracking Started ===\n");
+        printf("Baseline: %ld KB\n", baseline);
+        printf("==============================\n\n");
+        return;
+    }
+    
+    check_count++;
+    long growth = current - baseline;
+    long delta = current - previous;  // Change since last check
+    long elapsed_minutes = (now - start_time) / 60;
+    
+    printf("\n=== Memory Check #%d ===\n", check_count);
+    printf("Current: %ld KB\n", current);
+    printf("Total growth: %+ld KB\n", growth);
+    printf("Change since last check: %+ld KB\n", delta);
+    printf("Elapsed: %ld minutes\n", elapsed_minutes);
+    
+    // Determine status
+    if (delta == 0) {
+        printf("✅ STABLE - No change\n");
+    } else if (delta > 0 && delta < 100) {
+        printf("✅ STABLE - Minor fluctuation (+%ld KB)\n", delta);
+    } else if (delta > 100) {
+        printf("⚠ GROWING - Increased by %ld KB\n", delta);
+    } else {
+        printf("✅ STABLE - Decreased by %ld KB (GC)\n", -delta);
+    }
+    
+    // Calculate growth rate
+    if (elapsed_minutes > 0) {
+        long growth_per_hour = (growth * 60) / elapsed_minutes;
+        printf("Average growth rate: %ld KB/hour\n", growth_per_hour);
+        
+        if (growth_per_hour > 1024 && elapsed_minutes > 30) {
+            printf("⚠ WARNING: Sustained leak detected!\n");
+        } else if (elapsed_minutes > 10 && growth_per_hour < 100) {
+            printf("✅ Memory stable - no leak detected\n");
+        }
+    }
+    
+    printf("====================\n\n");
+    
+    previous = current;  // Update for next check
+}
+
+// Rate limiter: Prevents processing same topic more than once per second
+// Returns: true if message should be processed, false if should be skipped
+static bool should_process_message(const char *topic) {
+    // Skip rate limiting for critical topics that need immediate processing
+    const char *critical_topics[] = {
+        "everest_external/nodered/1/state/state_string",  // State changes are critical
+        // "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
+        NULL
+    };
+    
+    // Check if this is a critical topic
+    for (int i = 0; critical_topics[i] != NULL; i++) {
+        if (strcmp(topic, critical_topics[i]) == 0) {
+            return true;  // Always process critical topics
+        }
+    }
+    
+    // Rate limit all other topics
+    typedef struct {
+        char topic[128];
+        time_t last_time;
+    } TopicTimer;
+    
+    static TopicTimer timers[20] = {0};
+    static int timer_count = 0;
+    
+    time_t now = time(NULL);
+    
+    // Find existing timer for this topic
+    for (int i = 0; i < timer_count; i++) {
+        if (strcmp(timers[i].topic, topic) == 0) {
+            if (now == timers[i].last_time) {
+                return false;  // Skip - already processed this second
+            }
+            timers[i].last_time = now;
+            return true;  // Process - new second
+        }
+    }
+    
+    // New topic - add timer
+    if (timer_count < 20) {
+        strncpy(timers[timer_count].topic, topic, sizeof(timers[timer_count].topic) - 1);
+        timers[timer_count].topic[sizeof(timers[timer_count].topic) - 1] = '\0';
+        timers[timer_count].last_time = now;
+        timer_count++;
+    }
+    
+    return true;  // Process - first time or table full
+}
+
+
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
 
     static unsigned long msg_count = 0;
     static time_t last_rate_check = 0;
     static unsigned long last_msg_count = 0;
+    static time_t last_mem_check = 0; 
     
     msg_count++;
-    
     time_t now = time(NULL);
+
+    // Rate limiting: Skip if same topic processed this second
+    if (!should_process_message(topic)) {
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
+
     if (now - last_rate_check >= 30) {
         unsigned long msgs_in_period = msg_count - last_msg_count;
         unsigned long msg_rate = msgs_in_period / 30;
@@ -632,6 +795,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         last_rate_check = now;
         last_msg_count = msg_count;
+    }
+
+      // ADD THESE 4 LINES:
+    if (now - last_mem_check >= 60) {
+        check_lvgl_memory();
+        last_mem_check = now;
     }
 
     // Defensive checks
@@ -654,7 +823,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     lv_obj_add_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
     
     if (strcmp(topic,"everest_external/nodered/1/state/state_string") == 0){
-       lv_label_set_text(guider_ui.screen_label_1, (char *)message->payload);
+       UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, (char *)message->payload);
        lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
        lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
       if (
@@ -666,10 +835,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // Skip if already processed to prevent duplicate processing
           if (session_end_processed) {
 
-              lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
-              lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-              lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-              lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
               lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
@@ -693,17 +862,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
           
           // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
-          lv_label_set_text(guider_ui.screen_label_10, "--:--:--");
-          lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
           lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
           // Reset NFC Card UID and Type (always, regardless of session state)
-          lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-          lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-          lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
           lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
           char string_time_out[20];
           char diff_time[20];
@@ -742,24 +911,24 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
   snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
            diffTime.hours, diffTime.minutes, diffTime.seconds);
 
-  lv_label_set_text(guider_ui.screen_label_30, string_time_out);
-  lv_label_set_text(guider_ui.screen_label_31, diff_time);
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
           if (is_session_started){
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
             battery_level = 20.0;
             totalKWattHr = 0.000;
             mqtt_power_kw = 0.0f;
             mqtt_energy_kwh = 0.0f;
-            lv_label_set_text(guider_ui.screen_label_38, "20.0");
-            lv_label_set_text(guider_ui.screen_label_19, "20.0");
-            lv_label_set_text(guider_ui.screen_label_3, "0.0kWh");
-            lv_label_set_text(guider_ui.screen_label_11, "--:--:--");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, "20.0");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, "20.0");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, "0.0kWh");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
             lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-            lv_label_set_text(guider_ui.screen_label_25, "0");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
-            lv_label_set_text(guider_ui.screen_label_57, "UID: NA");
-            lv_label_set_text(guider_ui.screen_label_58, "Type: NA");
-            lv_label_set_text(guider_ui.screen_label_59, "Status: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
 
             is_session_started = false;
@@ -796,9 +965,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-          lv_label_set_text(guider_ui.screen_label_1, "Plugged in");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Plugged in");
           sleep(1);
-          lv_label_set_text(guider_ui.screen_label_1, "Wait for Auth");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Wait for Auth");
           is_new_session = true;	
       }
       if (
@@ -820,8 +989,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               
               snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
               
-              lv_label_set_text(guider_ui.screen_label_10, string_time);
-              lv_label_set_text(guider_ui.screen_label_29, string_time);
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, string_time);
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_time_buffer, string_time);
               
               start_time_captured = true;
             //   printf("Start time captured at Charging state: %s\n", string_time);
@@ -829,7 +998,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }      
       if ((strcmp((char *)message->payload,"PrepareCharging") == 0) && (is_new_session)){
         lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        lv_label_set_text(guider_ui.screen_label_1, "Authenticating...");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Authenticating...");
         char string_time[20];
         set_screen_digital_clock_1();
         is_session_started = true;
@@ -848,7 +1017,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
 
       if (strcmp((char *)message->payload,"Idle") == 0){
-        // lv_label_set_text(guider_ui.screen_label_1, "Unplugged");
+        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
         // char string_time_out[20];
         // char diff_time[20];
 
@@ -873,8 +1042,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         // snprintf(string_time_out, sizeof(string_time_out), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
         // snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", diffTime.hours, diffTime.minutes, diffTime.seconds);
-        // lv_label_set_text(guider_ui.screen_label_30, string_time_out);
-        // lv_label_set_text(guider_ui.screen_label_31, diff_time);
+        // UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
+        // UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
         // if (is_session_started){
         //   lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
         //   is_session_started = false;
@@ -882,7 +1051,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
       
     } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
-      // lv_label_set_text(guider_ui.screen_label_25, topic);
+      // UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, topic);
       char payload_copy[256];
       int len = message->payloadlen < 255 ? message->payloadlen : 255;
       memcpy(payload_copy, message->payload, len);
@@ -893,24 +1062,22 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       char *token;
       token = strtok(payload_copy, delim);  // ✅ Modify copy, not original
       
-      if (token != NULL) {
-          strncpy(before_dot, token, 19);
-          before_dot[19] = '\0';
-          lv_label_set_text(guider_ui.screen_label_4, before_dot);
-      }
+       if (token != NULL) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_4, label_temp_buffer, token);
+        }
     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
-      // lv_label_set_text(guider_ui.screen_label_25, topic);
+      // UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, topic);
       //move to increare_batery_level 
       // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
       // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
-      //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
     //   mqtt_power_kw = atof((char *)message->payload);
     //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
-      //move to increare_batery_level lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      //move to increare_batery_level UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
 
        int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
       //move to increare_batery_level 
-      //lv_label_set_text(guider_ui.screen_label_25, (char *)message->payload);
+      //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
     //   mqtt_power_kw = atof((char *)message->payload);
     //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
 
@@ -964,7 +1131,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
       // will uncomment with actual values
-      // lv_label_set_text(guider_ui.screen_label_3, (char *)message->payload);
+      // UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, (char *)message->payload);
       // strcpy(final_energy,(char *)message->payload);
       mqtt_energy_kwh = atof((char *)message->payload);
       strcpy(final_energy, (char *)message->payload);
@@ -1011,20 +1178,20 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
           // Check if we got a valid EVSE ID
           if (strlen(evse_id) > 0 && has_separator) {
-              snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", evse_id);
-              lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
+              snprintf(label_evse_id_buffer, sizeof(label_evse_id_buffer), "EVSE ID: %s", evse_id);
+              lv_label_set_text_static(guider_ui.screen_label_43, label_evse_id_buffer);
               printf("✓ EVSE ID set: %s\n", evse_id);
           } else if (strlen(evse_id) > 0) {
               // Got data but doesn't look like valid EVSE ID format
               snprintf(evse_id_display, sizeof(evse_id_display), "EVSE ID: %s", evse_id);
-              lv_label_set_text(guider_ui.screen_label_43, evse_id_display);
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_43, label_evse_id_buffer, evse_id_display);
               printf("⚠ EVSE ID set (non-standard format): %s\n", evse_id);
           } else {
-              lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_43, label_evse_id_buffer, "EVSE ID: NA");
               printf("✗ EVSE ID: NA (empty after parsing)\n");
           }
       } else {
-          lv_label_set_text(guider_ui.screen_label_43, "EVSE ID: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_43, label_evse_id_buffer, "EVSE ID: NA");
           printf("✗ EVSE ID: NA (invalid payload - len=%d, ptr=%p)\n", 
                 message->payloadlen, message->payload);
       }
@@ -1035,10 +1202,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // Check if payload is empty or null
       if (message->payloadlen > 0 && message->payload != NULL) {
           snprintf(ev_id_display, sizeof(ev_id_display), "EV ID: %s", (char *)message->payload);
-          lv_label_set_text(guider_ui.screen_label_44, ev_id_display);
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, ev_id_display);
           printf("EV ID: %s\n", (char *)message->payload);
       } else {
-          lv_label_set_text(guider_ui.screen_label_44, "EV ID: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
           printf("EV ID: NA (empty payload)\n");
     }
     
@@ -1060,15 +1227,15 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
         // Validate mode is A-F
         if ((mode >= 'A' && mode <= 'F') || (mode >= 'a' && mode <= 'f')) {
-            snprintf(iso_mode_display, sizeof(iso_mode_display), "ISO Mode: %c", toupper(mode));
-            lv_label_set_text(guider_ui.screen_label_52, iso_mode_display);
+            snprintf(label_iso_mode_buffer, sizeof(label_iso_mode_buffer), "ISO Mode: %c", toupper(mode));
+            lv_label_set_text_static(guider_ui.screen_label_52, label_iso_mode_buffer);
             printf("ISO 15118 Mode: %c\n", toupper(mode));
         } else {
-            lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
             printf("ISO 15118 Mode: Invalid mode '%s'\n", (char *)message->payload);
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_52, "ISO Mode: NA");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
         printf("ISO 15118 Mode: NA (empty payload)\n");
     }
     
@@ -1094,34 +1261,34 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         // Check for known protocols
         if (strcasecmp(protocol, "Unknown") == 0) {
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: Unknown");
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Unknown");
         } else if (strstr(protocol, "15118-2") != NULL || 
                    strstr(protocol, "15118_2") != NULL ||
                    strcasecmp(protocol, "ISO15118-2") == 0 ||
                    strcasecmp(protocol, "ISO 15118-2") == 0) {
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-2");
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-2");
         } else if (strstr(protocol, "15118-20") != NULL || 
                    strstr(protocol, "15118_20") != NULL ||
                    strcasecmp(protocol, "ISO15118-20") == 0 ||
                    strcasecmp(protocol, "ISO 15118-20") == 0) {
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-20");
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-20");
         } else if (strcasecmp(protocol, "IEC61851-1") == 0 ||
                    strcasecmp(protocol, "IEC 61851-1") == 0 ||
                    strcasecmp(protocol, "IEC61851") == 0 ||
                    strcasecmp(protocol, "Basic") == 0 ||
                    strstr(protocol, "61851") != NULL) {
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: Basic");
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Basic");
         } else if (strlen(protocol) > 0) {
             // Display the raw protocol value if not empty and unknown
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: %s", protocol);
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: %s", protocol);
         } else {
-            snprintf(protocol_display, sizeof(protocol_display), "Protocol: NA");
+            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: NA");
         }
         
-        lv_label_set_text(guider_ui.screen_label_53, protocol_display);
+        lv_label_set_text_static(guider_ui.screen_label_53, label_protocol_buffer);;
         printf("Selected Protocol: %s\n", protocol);
     } else {
-        lv_label_set_text(guider_ui.screen_label_53, "Protocol: NA");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
         printf("Selected Protocol: NA (empty payload)\n");
     }
   } else if (strcmp(topic, "everest_external/nodered/1/iso15118/voltage") == 0) {
@@ -1135,20 +1302,20 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             // Check if voltage is a whole number
             if (voltage == (int)voltage) {
                 // Display as integer (e.g., "Voltage: 400 V")
-                snprintf(voltage_display, sizeof(voltage_display), "Voltage: %d V", (int)voltage);
+                snprintf(label_voltage_buffer, sizeof(label_voltage_buffer), "Voltage: %d V", (int)voltage);
             } else {
                 // Display with 1 decimal place (e.g., "Voltage: 400.5 V")
-                snprintf(voltage_display, sizeof(voltage_display), "Voltage: %.1f V", voltage);
+                snprintf(label_voltage_buffer, sizeof(label_voltage_buffer), "Voltage: %.1f V", voltage);
             }
-            lv_label_set_text(guider_ui.screen_label_54, voltage_display);
+            lv_label_set_text_static(guider_ui.screen_label_54, label_voltage_buffer);
             printf("ISO 15118 Voltage: %.1f V\n", voltage);
         } else {
             // Out of range
-            lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_54, label_voltage_buffer, "Voltage: NA");
             printf("ISO 15118 Voltage: Out of range (%.1f V)\n", voltage);
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_54, "Voltage: NA");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_54, label_voltage_buffer, "Voltage: NA");
         printf("ISO 15118 Voltage: NA (empty payload)\n");
     }
   
@@ -1165,8 +1332,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             strcasecmp(direction, "Grid to Vehicle") == 0 ||
             strstr(direction, "G2V") != NULL ||
             strstr(direction, "g2v") != NULL) {
-            snprintf(direction_display, sizeof(direction_display), "Direction: G2V");
-            lv_label_set_text(guider_ui.screen_label_55, direction_display);
+            snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
+            lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
             printf("ISO 15118 Direction: G2V (Grid to Vehicle - Charging)\n");
         }
         // Check for V2G (Vehicle to Grid - Discharging)
@@ -1176,17 +1343,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                       strcasecmp(direction, "Vehicle to Grid") == 0 ||
                       strstr(direction, "V2G") != NULL ||
                       strstr(direction, "v2g") != NULL) {
-            snprintf(direction_display, sizeof(direction_display), "Direction: V2G");
-            lv_label_set_text(guider_ui.screen_label_55, direction_display);
+            snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
+            lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
             printf("ISO 15118 Direction: V2G (Vehicle to Grid - Discharging)\n");
         }
         // Unknown or invalid direction
         else {
-            lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
             printf("ISO 15118 Direction: Unknown (%s)\n", direction);
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_55, "Direction: NA");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
         printf("ISO 15118 Direction: NA (empty payload)\n");
     }
   
@@ -1200,33 +1367,33 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                  strcasecmp(connection, "UART") == 0 ||
                  strstr(connection, "serial") != NULL ||
                  strstr(connection, "uart") != NULL) {
-            snprintf(connection_display, sizeof(connection_display), "Sigboard: Serial");
-            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Serial");
+            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
             printf("Sigboard Connection: Serial/UART\n");
         }
         // Check for I2C
         else if (strcasecmp(connection, "I2C") == 0 ||
                  strstr(connection, "i2c") != NULL ||
                  strstr(connection, "I2C") != NULL) {
-            snprintf(connection_display, sizeof(connection_display), "Sigboard: I2C");
-            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: I2C");
+            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
             printf("Sigboard Connection: I2C\n");
         }
         // Check for SPI
         else if (strcasecmp(connection, "SPI") == 0 ||
                  strstr(connection, "spi") != NULL ||
                  strstr(connection, "SPI") != NULL) {
-            snprintf(connection_display, sizeof(connection_display), "Sigboard: SPI");
-            lv_label_set_text(guider_ui.screen_label_56, connection_display);
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: SPI");
+            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
             printf("Sigboard Connection: SPI\n");
         }
         // Unknown or invalid connection type
         else {
-            lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
             printf("Sigboard Connection: Unknown (%s)\n", connection);
         }
     } else {
-        lv_label_set_text(guider_ui.screen_label_56, "Sigboard: NA");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
         printf("Sigboard Connection: NA (empty payload)\n");
     }
   
@@ -1277,18 +1444,18 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                     uid_formatted[fmt_idx++] = uid_clean[i];
                     uid_formatted[fmt_idx++] = uid_clean[i + 1];
                 }
-                snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
+                snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: %s", uid_formatted);
             } else {
-                snprintf(uid_display, sizeof(uid_display), "UID: NA");
+                snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
             }
         } else {
-            snprintf(uid_display, sizeof(uid_display), "UID: NA");
+            snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
         }
     } else {
-        snprintf(uid_display, sizeof(uid_display), "UID: NA");
+        snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
     }
     
-    lv_label_set_text(guider_ui.screen_label_57, uid_display);
+    lv_label_set_text_static(guider_ui.screen_label_57, label_uid_buffer);
     
     // Find "type" field in id_token for Card Type
     char *type_start = strstr(payload_str, "\"type\":");
@@ -1312,33 +1479,33 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             
             // Check for known card types
             if (strcasecmp(card_type, "Local") == 0) {
-                snprintf(type_display, sizeof(type_display), "Type: Local");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Local");
             } else if (strcasecmp(card_type, "ISO14443") == 0 || 
                        strcasestr(card_type, "14443") != NULL) {
-                snprintf(type_display, sizeof(type_display), "Type: ISO14443");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO14443");
             } else if (strcasestr(card_type, "MIFARE") != NULL) {
-                snprintf(type_display, sizeof(type_display), "Type: MIFARE");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: MIFARE");
             } else if (strcasestr(card_type, "NTAG") != NULL) {
-                snprintf(type_display, sizeof(type_display), "Type: NTAG");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NTAG");
             } else if (strcasecmp(card_type, "Central") == 0) {
-                snprintf(type_display, sizeof(type_display), "Type: Central");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Central");
             } else if (strcasecmp(card_type, "eMAID") == 0) {
-                snprintf(type_display, sizeof(type_display), "Type: eMAID");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: eMAID");
             } else if (strcasecmp(card_type, "ISO15693") == 0 || 
                        strcasestr(card_type, "15693") != NULL) {
-                snprintf(type_display, sizeof(type_display), "Type: ISO15693");
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO15693");
             } else {
                 // Display the raw type value if unknown
-                snprintf(type_display, sizeof(type_display), "Type: %s", card_type);
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: %s", card_type);
             }
         } else {
-            snprintf(type_display, sizeof(type_display), "Type: NA");
+            snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NA");
         }
     } else {
-        snprintf(type_display, sizeof(type_display), "Type: NA");
+        snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NA");
     }
     
-    lv_label_set_text(guider_ui.screen_label_58, type_display);
+    lv_label_set_text_static(guider_ui.screen_label_58, label_card_type_buffer);
     
     // Find "status" field for Card Status
     char *status_start = strstr(payload_str, "\"status\":");
@@ -1366,8 +1533,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 strcasecmp(card_status, "UsedToStart") == 0 ||
                 strcasecmp(card_status, "Valid") == 0 ||
                 strcasecmp(card_status, "OK") == 0) {
-                snprintf(status_display, sizeof(status_display), "Status: Accepted");
-                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Accepted");
+                lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
                 // Set text color to green
                 lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
             }
@@ -1377,26 +1544,26 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                      strcasecmp(card_status, "Invalid") == 0 ||
                      strcasecmp(card_status, "Blocked") == 0 ||
                      strcasecmp(card_status, "Failed") == 0) {
-                snprintf(status_display, sizeof(status_display), "Status: Rejected");
-                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Rejected");
+                lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
                 // Set text color to red
                 lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
             }
             // Unknown status - display as-is
             else {
-                snprintf(status_display, sizeof(status_display), "Status: %s", card_status);
-                lv_label_set_text(guider_ui.screen_label_59, status_display);
+                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: %s", card_status);
+                lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
                 // Set text color to default gray/white
                 lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
             }
         } else {
-            snprintf(status_display, sizeof(status_display), "Status: NA");
-            lv_label_set_text(guider_ui.screen_label_59, status_display);
+            snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: NA");
+            lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
         }
     } else {
-        snprintf(status_display, sizeof(status_display), "Status: NA");
-        lv_label_set_text(guider_ui.screen_label_59, status_display);
+        snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: NA");
+        lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
         lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
     }
 
@@ -1427,10 +1594,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 char current_display[32];
                 
                 // Format: "24.5 A" with 1 decimal place
-                snprintf(current_display, sizeof(current_display), "%.1f A", current_l1);
+                snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
                 
                 // Update label_60
-                lv_label_set_text(guider_ui.screen_label_60, current_display);
+                lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
                 // printf("Current L1 updated: %s\n", current_display);
                 
                 // Future: Add L2, L3, N handling here with else if blocks
@@ -1572,8 +1739,8 @@ void unplug(){
   pubmsg.qos = QOS; 
   pubmsg.retained = 0;
 
-  lv_label_set_text(guider_ui.screen_label_27, final_energy);
-  lv_label_set_text(guider_ui.screen_label_28, final_energy);
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_27, label_energy_buffer, final_energy);
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer, final_energy);
   MQTTClient_publishMessage(client, "everest_external/nodered/1/carsim/cmd/modify_charging_session", &pubmsg, NULL); 
   printf("Message published: %s\n", "unplug"); 
 }
@@ -1649,9 +1816,9 @@ static void screen_slider_1_event_custom_handler (lv_event_t *e)
     lv_obj_t * slider = lv_event_get_target(e);
     char buf[8];
     char publish_buffer[8];
-    lv_snprintf(buf, sizeof(buf), "MAX: %d%", (char)lv_slider_get_value(slider));
+    lv_snprintf(label_slider1_buffer, sizeof(label_slider1_buffer), "MAX: %d%%", (int)lv_slider_get_value(slider));
     lv_snprintf(publish_buffer, sizeof(buf), "%d%", (int)lv_slider_get_value(slider));
-    lv_label_set_text(guider_ui.screen_label_6, buf);
+    lv_label_set_text_static(guider_ui.screen_label_6, label_slider1_buffer);
     pubmsg.payload = publish_buffer; 
     pubmsg.payloadlen = (int)strlen(publish_buffer); 
     pubmsg.qos = QOS; 
@@ -1702,15 +1869,15 @@ void increase_battery_level(){
     }
      
     
-    lv_label_set_text(guider_ui.screen_label_1, "Charging");
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
     lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
     
     battery_level_to_int = (int)battery_level;
-    lv_label_set_text(guider_ui.screen_label_38, battery_level_to_str);
-    lv_label_set_text(guider_ui.screen_label_19, battery_level_to_str);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, battery_level_to_str);
     
-    lv_label_set_text(guider_ui.screen_label_3, totalKWattHr_to_str);
-    lv_label_set_text(guider_ui.screen_label_28, totalKWattHr_to_str);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, totalKWattHr_to_str);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer, totalKWattHr_to_str);
     
     lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
 
@@ -1724,7 +1891,7 @@ void increase_battery_level(){
       }
  
       lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
-      lv_label_set_text(guider_ui.screen_label_25, power_str);
+      UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, power_str);
 
     //add estimated end time
     float remaining_charge;
@@ -1734,7 +1901,7 @@ void increase_battery_level(){
     char diff_time[20];
     diffTime = secondsToTime(remaining_time_in_seconds);
     snprintf(diff_time, sizeof(diff_time), "00:%02d:%02d", diffTime.minutes, diffTime.seconds);
-    lv_label_set_text(guider_ui.screen_label_11, diff_time);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, diff_time);
     //add estimated end time
   }else{
 
@@ -1743,10 +1910,10 @@ void increase_battery_level(){
       pause_charging();  // This will now capture pause time inside the function
       printf("\nready to pause: elseIf\n");
       lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-      lv_label_set_text(guider_ui.screen_label_11, "00:00:00");
+      UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "00:00:00");
       // Add dial data
         lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-        lv_label_set_text(guider_ui.screen_label_25, "0");
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
       // Add dial data
       set_paused = 0; 
     }
@@ -1760,9 +1927,9 @@ static void screen_slider_2_event_custom_handler (lv_event_t *e)
     char buf[8];
     char publish_buffer[8];
     // lv_snprintf(buf, sizeof(buf), "%d% %", (char)lv_slider_get_value(slider));
-    lv_snprintf(buf, sizeof(buf), "%d%%", (int)lv_slider_get_value(slider));
+    lv_snprintf(label_slider2_buffer, sizeof(label_slider2_buffer), "%d%%", (int)lv_slider_get_value(slider));
     max_limit = lv_slider_get_value(slider);
-    lv_label_set_text(guider_ui.screen_label_34, buf);
+    lv_label_set_text_static(guider_ui.screen_label_34, label_slider2_buffer);
 }
 
 static void screen_sw_1_event_custom_handler (lv_event_t *e)
@@ -1782,7 +1949,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
           
             // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
             unplug(); 
-            lv_label_set_text(guider_ui.screen_label_10, "--:--:--");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
             lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
             // lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
             // lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
@@ -1799,7 +1966,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
 			// lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
           
             // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
-            //lv_label_set_text(guider_ui.screen_label_10, "12:12:12");
+            //UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "12:12:12");
             plug_in();
             is_new_session = true;			
 			break;
@@ -1818,14 +1985,14 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
 static void screen_img_18_custom_event_custom_handler (lv_event_t *e)
 {
   // pause_charging();
-  lv_label_set_text(guider_ui.screen_label_1, "final_energy: Pause");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "final_energy: Pause");
 }
 
 static void screen_img_19_custom_event_custom_handler (lv_event_t *e)
 {
   // resume_charging();
   is_new_session = false;
-  lv_label_set_text(guider_ui.screen_label_1, "final_energy: Play");
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "final_energy: Play");
 }
 
 static void screen_sw_2_custom_event_custom_handler (lv_event_t *e)
