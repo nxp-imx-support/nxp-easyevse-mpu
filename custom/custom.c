@@ -720,7 +720,7 @@ static bool should_process_message(const char *topic) {
     // Skip rate limiting for critical topics that need immediate processing
     const char *critical_topics[] = {
         "everest_external/nodered/1/state/state_string",  // State changes are critical
-        // "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
+        "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
         NULL
     };
     
