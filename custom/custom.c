@@ -65,7 +65,7 @@ static const char* MQTT_TOPICS[] = {
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
     "everest_external/nodered/1/iso15118/voltage",
     "everest_external/nodered/1/iso15118/direction",
-    "everest_external/nodered/1/sigboard/connection_type",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
     // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
     // "everest_external/nodered/1/nfc/card_status",    // Commented - not currently used
@@ -1357,44 +1357,71 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         printf("ISO 15118 Direction: NA (empty payload)\n");
     }
   
-  } else if (strcmp(topic, "everest_external/nodered/1/sigboard/connection_type") == 0) {
+  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
     char connection_display[32];
-      
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char *connection = (char *)message->payload;
-          
-        if (strcasecmp(connection, "Serial") == 0 ||
-                 strcasecmp(connection, "UART") == 0 ||
-                 strstr(connection, "serial") != NULL ||
-                 strstr(connection, "uart") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Serial");
-            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
-            printf("Sigboard Connection: Serial/UART\n");
-        }
-        // Check for I2C
-        else if (strcasecmp(connection, "I2C") == 0 ||
-                 strstr(connection, "i2c") != NULL ||
-                 strstr(connection, "I2C") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: I2C");
-            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
-            printf("Sigboard Connection: I2C\n");
-        }
-        // Check for SPI
-        else if (strcasecmp(connection, "SPI") == 0 ||
-                 strstr(connection, "spi") != NULL ||
-                 strstr(connection, "SPI") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: SPI");
-            lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
-            printf("Sigboard Connection: SPI\n");
-        }
-        // Unknown or invalid connection type
-        else {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-            printf("Sigboard Connection: Unknown (%s)\n", connection);
-        }
+        // Validate payload
+    if (message->payloadlen <= 0 || message->payload == NULL) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
+    
+    char *payload_str = (char *)message->payload;
+    char *connector_start = strstr(payload_str, "\"connector_type\":");
+    
+    // Check if connector_type field exists
+    if (connector_start == NULL) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
+
+    // Skip past "connector_type": and whitespace/quotes
+    connector_start += 17;
+    while (*connector_start == ' ' || *connector_start == '\t' || *connector_start == '"') {
+        connector_start++;
+    }
+    
+    // Find closing quote
+    char *connector_end = strchr(connector_start, '"');
+    if (connector_end == NULL || (connector_end - connector_start) <= 0) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
+
+    // Extract connector type string
+    int connector_len = connector_end - connector_start;
+    char connector_type[64];
+    strncpy(connector_type, connector_start, connector_len);
+    connector_type[connector_len] = '\0';
+    
+    // Map connector type to display string
+    const char *display_text = NULL;
+    
+    if (strcasestr(connector_type, "IEC62196Type2Cable") || strcasestr(connector_type, "Type2Cable")) {
+        display_text = "Sigboard: Type2 Cable";
+    } else if (strcasestr(connector_type, "IEC62196Type2Socket") || strcasestr(connector_type, "Type2Socket")) {
+        display_text = "Sigboard: Type2 Socket";
+    } else if (strcasestr(connector_type, "Type1")) {
+        display_text = "Sigboard: Type1";
+    } else if (strcasestr(connector_type, "CCS")) {
+        display_text = "Sigboard: CCS";
+    } else if (strcasestr(connector_type, "CHAdeMO")) {
+        display_text = "Sigboard: CHAdeMO";
+    } else {
+        // Unknown connector - display raw value
+        snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: %s", connector_type);
+        display_text = label_sigboard_buffer;
+    }
+    // Update label
+    if (display_text != label_sigboard_buffer) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, display_text);
     } else {
         UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-        printf("Sigboard Connection: NA (empty payload)\n");
     }
   
   } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
