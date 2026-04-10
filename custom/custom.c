@@ -63,13 +63,12 @@ static const char* MQTT_TOPICS[] = {
     "everest_external/nodered/1/ev/battery_level",
     "everest_external/nodered/1/iso15118/mode",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
-    "everest_external/nodered/1/iso15118/voltage",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter",
     "everest_external/nodered/1/iso15118/direction",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
     // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
     // "everest_external/nodered/1/nfc/card_status",    // Commented - not currently used
-    "everest_api/evse_manager_1/var/powermeter",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info" 
 };
 
@@ -1382,34 +1381,52 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
         printf("Selected Protocol: NA (empty payload)\n");
     }
-  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/voltage") == 0) {
-    char voltage_display[32];
-      
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        float voltage = atof((char *)message->payload);
-          
-        // Validate voltage range (0-1000V typical for EV charging)
-        if (voltage >= 0.0f && voltage <= 1000.0f) {
-            // Check if voltage is a whole number
-            if (voltage == (int)voltage) {
-                // Display as integer (e.g., "Voltage: 400 V")
-                snprintf(label_voltage_buffer, sizeof(label_voltage_buffer), "Voltage: %d V", (int)voltage);
-            } else {
-                // Display with 1 decimal place (e.g., "Voltage: 400.5 V")
-                snprintf(label_voltage_buffer, sizeof(label_voltage_buffer), "Voltage: %.1f V", voltage);
-            }
-            lv_label_set_text_static(guider_ui.screen_label_54, label_voltage_buffer);
-            printf("ISO 15118 Voltage: %.1f V\n", voltage);
-        } else {
-            // Out of range
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_54, label_voltage_buffer, "Voltage: NA");
-            printf("ISO 15118 Voltage: Out of range (%.1f V)\n", voltage);
-        }
-    } else {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_54, label_voltage_buffer, "Voltage: NA");
-        printf("ISO 15118 Voltage: NA (empty payload)\n");
+  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter") == 0) {
+   // Validate payload
+    if (message->payloadlen <= 0 || message->payload == NULL) {
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
     }
-  
+    
+    char *payload_str = (char *)message->payload;
+    
+    // Parse voltage_V -> L1
+    char *voltage_v_start = strstr(payload_str, "\"voltage_V\":");
+    if (voltage_v_start != NULL) {
+        char *l1_start = strstr(voltage_v_start, "\"L1\":");
+        if (l1_start != NULL) {
+            l1_start += 5;
+            while (*l1_start == ' ' || *l1_start == '\t') {
+                l1_start++;
+            }
+            
+            float voltage_l1 = atof(l1_start);
+            static char voltage_display[32];
+            snprintf(voltage_display, sizeof(voltage_display), "Voltage: %.1f V", voltage_l1);
+            lv_label_set_text_static(guider_ui.screen_label_54, voltage_display);
+            // printf("Voltage L1 (MQTT): %.1f V\n", voltage_l1);
+        }
+    }
+    
+    // Parse current_A -> L1
+    char *current_a_start = strstr(payload_str, "\"current_A\":");
+    if (current_a_start != NULL) {
+        char *l1_start = strstr(current_a_start, "\"L1\":");
+        if (l1_start != NULL) {
+            l1_start += 5;
+            while (*l1_start == ' ' || *l1_start == '\t') {
+                l1_start++;
+            }
+            
+            float current_l1 = atof(l1_start);
+            snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
+            lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
+            // printf("Current L1 (MQTT): %.1f A\n", current_l1);
+        }
+    }
+    
+
   } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
     char direction_display[32];
       
@@ -1794,49 +1811,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
     }
 
-  } else if (strcmp(topic, "everest_api/evse_manager_1/var/powermeter") == 0) {
-        // printf("Received powermeter data: %.*s\n", message->payloadlen, (char *)message->payload);
-        
-        // Parse L1 current using string search
-        char *payload_str = (char *)message->payload;
-        
-        // First, find the "current_A" section
-        char *current_a_start = strstr(payload_str, "\"current_A\":");
-        
-        if (current_a_start != NULL) {
-            // Now find L1 within current_A section (not voltage_V section)
-            char *l1_start = strstr(current_a_start, "\"L1\":");
-            
-            if (l1_start != NULL) {
-                // Move pointer past "L1":
-                l1_start += 5;
-                
-                // Skip whitespace
-                while (*l1_start == ' ' || *l1_start == '\t') {
-                    l1_start++;
-                }
-                
-                // Parse the float value
-                float current_l1 = atof(l1_start);
-                char current_display[32];
-                
-                // Format: "24.5 A" with 1 decimal place
-                snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
-                
-                // Update label_60
-                lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
-                // printf("Current L1 updated: %s\n", current_display);
-                
-                // Future: Add L2, L3, N handling here with else if blocks
-                
-            } else {
-                printf("Warning: L1 value not found in current_A section\n");
-            }
-        } else {
-            printf("Warning: current_A section not found in powermeter data\n");
-        }
-    }
-  
+  } 
+
   MQTTClient_freeMessage(&message);
   MQTTClient_free(topic);
   return 1;
