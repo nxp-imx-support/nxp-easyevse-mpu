@@ -55,7 +55,6 @@
 static const char* MQTT_TOPICS[] = {
     // "everest_external/nodered/1/powermeter/totalKWattHr",
     "everest_external/nodered/1/powermeter/totalKw",
-    "everest_external/nodered/1/state/temperature",
     "everest_external/nodered/1/state/state_string",
     "everest_api/ocpp/var/connection_status",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
@@ -1141,20 +1140,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
       
     } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
-      // UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, topic);
-      char payload_copy[256];
-      int len = message->payloadlen < 255 ? message->payloadlen : 255;
-      memcpy(payload_copy, message->payload, len);
-      payload_copy[len] = '\0';
-      
-      char *delim = ".";
-      char before_dot[20];
-      char *token;
-      token = strtok(payload_copy, delim);  // ✅ Modify copy, not original
-      
-       if (token != NULL) {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_4, label_temp_buffer, token);
-        }
+    printf("depricated_block");
+        
     } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
       // UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, topic);
       //move to increare_batery_level 
@@ -1423,6 +1410,34 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
             lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
             // printf("Current L1 (MQTT): %.1f A\n", current_l1);
+        }
+    }
+
+    // Parse temperatures array -> Body location
+    char *temp_array_start = strstr(payload_str, "\"temperatures\":");
+    if (temp_array_start != NULL) {
+        // Find "Body" location within temperatures array
+        char *body_location = strstr(temp_array_start, "\"location\": \"Body\"");
+        
+        if (body_location != NULL) {
+            // Find temperature field after Body location
+            char *temp_field = strstr(body_location, "\"temperature\":");
+            
+            if (temp_field != NULL) {
+                temp_field += 14;  // Skip past "temperature":
+                
+                while (*temp_field == ' ' || *temp_field == '\t' || *temp_field == ':') {
+                    temp_field++;
+                }
+                
+                float temperature = atof(temp_field);
+                
+                static char temp_display[16];
+                snprintf(temp_display, sizeof(temp_display), "%.0f", temperature);
+                
+                lv_label_set_text_static(guider_ui.screen_label_4, temp_display);
+                // printf("Temperature (Body): %.1f°C\n", temperature);
+            }
         }
     }
     
