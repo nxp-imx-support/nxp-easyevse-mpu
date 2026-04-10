@@ -53,7 +53,7 @@
  *********************/
 // Centralized MQTT topics - used for initial subscription and reconnection
 static const char* MQTT_TOPICS[] = {
-    "everest_external/nodered/1/powermeter/totalKWattHr",
+    // "everest_external/nodered/1/powermeter/totalKWattHr",
     "everest_external/nodered/1/powermeter/totalKw",
     "everest_external/nodered/1/state/temperature",
     "everest_external/nodered/1/state/state_string",
@@ -143,7 +143,9 @@ static unsigned long mqtt_reconnection_count = 0;
 // Pre-allocated buffers reused for all label updates
 // This prevents LVGL from allocating new memory on every update (which causes 7MB/hour leak)
 static char label_state_buffer[64] = "Initializing...";
-static char label_energy_buffer[32] = "0.0 kWh";
+static char label_energy_buffer[32] = "0.000 kWh";
+static char label_energy_buffer_mqtt[32];
+static char label_energy_buffer_mqtt_summary[32];
 static char label_temp_buffer[16] = "0";
 static char label_power_buffer[16] = "0";
 static char label_battery_buffer[16] = "20.0";
@@ -169,6 +171,7 @@ static char label_network_buffer[16] = "Unknown";
 static char label_location_buffer[64] = "NXP Plot 1";
 static char label_slider1_buffer[16] = "MAX: 0%";
 static char label_slider2_buffer[16] = "0%";
+static bool is_mqtt_end_time_captured=false;
 
 
 // Helper macro to safely update labels without memory allocation
@@ -828,8 +831,6 @@ static bool parse_iso8601_to_local(const char *iso_time, char *output, size_t ou
     
     snprintf(output, output_size, "%02d:%02d:%02d %s", 
              hour_12, local_time->tm_min, local_time->tm_sec, ampm);
-    printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_111\n");
-    printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_111.1 ::: %s\n", output);
     return true;
 }
 
@@ -842,7 +843,6 @@ static void format_duration_seconds(int total_seconds, char *output, size_t outp
     if (output == NULL) {
         return;
     }
-     printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_222\n");
     
     // Handle negative values
     if (total_seconds < 0) {
@@ -1012,7 +1012,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             mqtt_energy_kwh = 0.0f;
             UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, "20.0");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, "20.0");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, "0.0kWh");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, "0.000 kWh");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
             lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
             UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
@@ -1220,12 +1220,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                  (char *)message->payload);
       }
         
-    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
-      // will uncomment with actual values
-      // UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, (char *)message->payload);
-      // strcpy(final_energy,(char *)message->payload);
-      mqtt_energy_kwh = atof((char *)message->payload);
-      strcpy(final_energy, (char *)message->payload);
+    // } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
+    //   // will uncomment with actual values
+    //   // UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, (char *)message->payload);
+    //   // strcpy(final_energy,(char *)message->payload);
+    //   mqtt_energy_kwh = atof((char *)message->payload);
+    //   strcpy(final_energy, (char *)message->payload);
     //   printf("Received totalKWattHr: %.3f\n", mqtt_energy_kwh);
 
     //   printf("this is blank");
@@ -1546,7 +1546,8 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             if (parse_iso8601_to_local(iso_start, local_time, sizeof(local_time))) {
                 UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, local_time);
                 UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_start_time_summary, local_time);
-                printf("Session start time (MQTT): %s\n", local_time);
+                // printf("Session start time (MQTT): %s\n", local_time);
+                is_mqtt_end_time_captured = false;
             }
         }
     }
@@ -1571,9 +1572,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             char local_time[32];
             if (parse_iso8601_to_local(iso_end, local_time, sizeof(local_time))) {
                 UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, local_time);
-                printf("Session end time (MQTT): %s\n", local_time);
+                // printf("Session end time (MQTT): %s\n", local_time);
                 UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, "--:--:--");
                 UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_time_buffer, "--:--:--");
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+                is_mqtt_end_time_captured = true;
+                // printf("(MQTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT): %s\n", local_time);
             }
         }
     }
@@ -1591,8 +1595,33 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             char duration_str[32];
             format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
             UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
-            printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
+            // printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
         }
+    }
+
+    // Parse charged_energy_wh → Feed into existing energy logic
+    char *energy_field = strstr(payload_str, "\"charged_energy_wh\":");
+    if (energy_field != NULL) {
+        energy_field += 20;  // Skip past "charged_energy_wh":
+        
+        while (*energy_field == ' ' || *energy_field == '\t' || *energy_field == ':') {
+            energy_field++;
+        }
+        
+        int energy_wh = atoi(energy_field);
+        mqtt_energy_kwh = energy_wh / 1000.0f;  // Convert Wh to kWh
+        snprintf(final_energy, sizeof(final_energy), "%.3fkWh", mqtt_energy_kwh);
+        
+        // snprintf(final_energy, sizeof(final_energy), "%.3f", mqtt_energy_kwh);
+        if (is_mqtt_end_time_captured){
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+        }
+        else{
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
+        }
+        
+        // printf("Charged energy (MQTT): %d Wh → %.3f kWh\n", energy_wh, final_energy);
     }
 
   } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
@@ -2073,9 +2102,6 @@ void increase_battery_level(){
     battery_level_to_int = (int)battery_level;
     UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
     UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, battery_level_to_str);
-    
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, totalKWattHr_to_str);
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer, totalKWattHr_to_str);
     
     lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
 
