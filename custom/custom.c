@@ -69,7 +69,8 @@ static const char* MQTT_TOPICS[] = {
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
     // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
     // "everest_external/nodered/1/nfc/card_status",    // Commented - not currently used
-    "everest_api/evse_manager_1/var/powermeter"
+    "everest_api/evse_manager_1/var/powermeter",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info" 
 };
 
 static const int MQTT_TOPICS_COUNT = sizeof(MQTT_TOPICS) / sizeof(MQTT_TOPICS[0]);
@@ -84,6 +85,10 @@ static const int MQTT_TOPICS_COUNT = sizeof(MQTT_TOPICS) / sizeof(MQTT_TOPICS[0]
 // MQTT helper function prototype
 int subscribe_to_mqtt_topics(void);
 int unsubscribe_from_mqtt_topics(void);
+
+// Session info helper prototypes
+static bool parse_iso8601_to_local(const char *iso_time, char *output, size_t output_size);
+static void format_duration_seconds(int total_seconds, char *output, size_t output_size);
 
 /**********************
  *  STATIC VARIABLES
@@ -143,6 +148,8 @@ static char label_temp_buffer[16] = "0";
 static char label_power_buffer[16] = "0";
 static char label_battery_buffer[16] = "20.0";
 static char label_time_buffer[32] = "--:--:--";
+static char label_start_time_main[32];    // for label_10
+static char label_start_time_summary[32]; // for label_29
 static char label_evse_id_buffer[128] = "EVSE ID: NA";
 static char label_ev_id_buffer[128] = "EV ID: NA";
 static char label_iso_mode_buffer[32] = "ISO Mode: NA";
@@ -155,6 +162,7 @@ static char label_card_type_buffer[64] = "Type: NA";
 static char label_card_status_buffer[64] = "Status: NA";
 static char label_current_buffer[32] = "0.0 A";
 static char label_duration_buffer[32] = "00:00:00";
+static char label_duration_buffer_mqtt[32];
 static char label_end_time_buffer[32] = "00:00:00 AM";
 static char label_ip_buffer[32] = "(No IP)";
 static char label_network_buffer[16] = "Unknown";
@@ -721,6 +729,8 @@ static bool should_process_message(const char *topic) {
     const char *critical_topics[] = {
         "everest_external/nodered/1/state/state_string",  // State changes are critical
         "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info",
         NULL
     };
     
@@ -764,6 +774,87 @@ static bool should_process_message(const char *topic) {
     return true;  // Process - first time or table full
 }
 
+/**********************
+ *  SESSION INFO HELPERS
+ **********************/
+
+// Helper: Parse ISO 8601 timestamp to local time string
+// Input:  "2026-03-31T11:24:23.171Z"
+// Output: "11:24:23 AM" (local time)
+static bool parse_iso8601_to_local(const char *iso_time, char *output, size_t output_size) {
+    if (iso_time == NULL || output == NULL) {
+        return false;
+    }
+    
+    int year, month, day, hour, min, sec;
+    
+    // Parse ISO 8601 format: YYYY-MM-DDTHH:MM:SS.sssZ
+    int parsed = sscanf(iso_time, "%d-%d-%dT%d:%d:%d", 
+                        &year, &month, &day, &hour, &min, &sec);
+    
+    if (parsed != 6) {
+        printf("Failed to parse ISO 8601 timestamp: %s\n", iso_time);
+        return false;
+    }
+    
+    // Build UTC time structure
+    struct tm tm_utc = {0};
+    tm_utc.tm_year = year - 1900;
+    tm_utc.tm_mon = month - 1;
+    tm_utc.tm_mday = day;
+    tm_utc.tm_hour = hour;
+    tm_utc.tm_min = min;
+    tm_utc.tm_sec = sec;
+    tm_utc.tm_isdst = -1;
+    
+    // Convert UTC to epoch time
+    time_t utc_time = timegm(&tm_utc);
+    if (utc_time == -1) {
+        printf("Failed to convert UTC time for: %s\n", iso_time);
+        return false;
+    }
+    
+    // Convert epoch to local time
+    struct tm *local_time = localtime(&utc_time);
+    if (local_time == NULL) {
+        printf("Failed to convert to local time\n");
+        return false;
+    }
+    
+    // Format as 12-hour with AM/PM
+    int hour_12 = local_time->tm_hour % 12;
+    if (hour_12 == 0) hour_12 = 12;
+    const char *ampm = (local_time->tm_hour >= 12) ? "PM" : "AM";
+    
+    snprintf(output, output_size, "%02d:%02d:%02d %s", 
+             hour_12, local_time->tm_min, local_time->tm_sec, ampm);
+    printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_111\n");
+    printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_111.1 ::: %s\n", output);
+    return true;
+}
+
+// Helper: Convert seconds to HH:MM:SS format
+// Input:  13 seconds
+// Output: "00:00:13"
+// Input:  3665 seconds
+// Output: "01:01:05"
+static void format_duration_seconds(int total_seconds, char *output, size_t output_size) {
+    if (output == NULL) {
+        return;
+    }
+     printf("_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_222\n");
+    
+    // Handle negative values
+    if (total_seconds < 0) {
+        total_seconds = 0;
+    }
+    
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int seconds = total_seconds % 60;
+    
+    snprintf(output, output_size, "%02d:%02d:%02d", hours, minutes, seconds);
+}
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
 
@@ -990,7 +1081,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
               
               UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, string_time);
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_time_buffer, string_time);
+            //   UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_time_buffer, string_time);
               
               start_time_captured = true;
             //   printf("Start time captured at Charging state: %s\n", string_time);
@@ -1424,6 +1515,86 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
     }
   
+  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info") == 0 ) {
+    if (message->payloadlen <= 0 || message->payload == NULL) {
+        printf("session_info: Empty payload\n");
+        MQTTClient_freeMessage(&message);
+        MQTTClient_free(topic);
+        return 1;
+    }
+
+    char *payload_str = (char *)message->payload;
+
+    // Parse transaction_start_time
+    char *start_field = strstr(payload_str, "\"transaction_start_time\":");
+    if (start_field != NULL) {
+        start_field += 25;  // Skip past "transaction_start_time":
+        
+        // Skip whitespace and quotes
+        while (*start_field == ' ' || *start_field == '\t' || *start_field == '"') {
+            start_field++;
+        }
+        
+        char *end_quote = strchr(start_field, '"');
+        if (end_quote != NULL && (end_quote - start_field) > 0) {
+            char iso_start[64];
+            int len = (end_quote - start_field) < 63 ? (end_quote - start_field) : 63;
+            strncpy(iso_start, start_field, len);
+            iso_start[len] = '\0';
+            
+            char local_time[32];
+            if (parse_iso8601_to_local(iso_start, local_time, sizeof(local_time))) {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, local_time);
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_start_time_summary, local_time);
+                printf("Session start time (MQTT): %s\n", local_time);
+            }
+        }
+    }
+
+    // Parse transaction_end_time
+    char *end_field = strstr(payload_str, "\"transaction_end_time\":");
+    if (end_field != NULL) {
+        end_field += 23;  // Skip past "transaction_end_time":
+        
+        // Skip whitespace and quotes
+        while (*end_field == ' ' || *end_field == '\t' || *end_field == '"') {
+            end_field++;
+        }
+        
+        char *end_quote = strchr(end_field, '"');
+        if (end_quote != NULL && (end_quote - end_field) > 0) {
+            char iso_end[64];
+            int len = (end_quote - end_field) < 63 ? (end_quote - end_field) : 63;
+            strncpy(iso_end, end_field, len);
+            iso_end[len] = '\0';
+            
+            char local_time[32];
+            if (parse_iso8601_to_local(iso_end, local_time, sizeof(local_time))) {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, local_time);
+                printf("Session end time (MQTT): %s\n", local_time);
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, "--:--:--");
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_time_buffer, "--:--:--");
+            }
+        }
+    }
+
+    // Parse transaction_duration_s (already working!)
+    char *duration_field = strstr(payload_str, "\"transaction_duration_s\":");
+    if (duration_field != NULL) {
+        duration_field += 25;
+        while (*duration_field == ' ' || *duration_field == '\t' || *duration_field == ':') {
+            duration_field++;
+        }
+        
+        int duration_seconds = atoi(duration_field);
+        if (duration_seconds >= 0) {
+            char duration_str[32];
+            format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
+            printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
+        }
+    }
+
   } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
       char *payload_str = (char *)message->payload;
     char uid_display[64];
