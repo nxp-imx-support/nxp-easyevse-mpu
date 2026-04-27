@@ -56,9 +56,10 @@ static const char* MQTT_TOPICS[] = {
     // "everest_external/nodered/1/powermeter/totalKWattHr",
     "everest_external/nodered/1/powermeter/totalKw",
     "everest_external/nodered/1/state/state_string",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
     "everest_api/ocpp/var/connection_status",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
-    "everest_external/nodered/1/ev/ev_id",
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info",
     "everest_external/nodered/1/ev/battery_level",
     "everest_external/nodered/1/iso15118/mode",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
@@ -112,7 +113,7 @@ bool is_new_session=false;
 bool is_session_started=false;
 float battery_level = 20.0f;
 bool active_session=false;
-int max_limit=25;
+int max_limit=100;
 float totalKWattHr = 0.000f;
 int set_paused=0;
 float mqtt_power_kw = 0.0f;
@@ -732,6 +733,8 @@ static bool should_process_message(const char *topic) {
         "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
         "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
         "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info",
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info",
+        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
         NULL
     };
     
@@ -911,14 +914,46 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     // Hide cont_4 when MQTT messages are coming (EVerest is running)
     lv_obj_add_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
     
-    if (strcmp(topic,"everest_external/nodered/1/state/state_string") == 0){
-       UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, (char *)message->payload);
+    if (strcmp(topic,"everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event") == 0){
+
+            char *payload_str = (char *)message->payload;
+            char event_value[64] = {0};
+            
+            // Parse "event" field from JSON: {"event": "SessionFinished", ...}
+            char *event_field = strstr(payload_str, "\"event\"");
+            
+            if (event_field != NULL) {
+                // Skip past "event"
+                event_field += 7;
+                
+                // Skip whitespace, colon, whitespace, and opening quote
+                while (*event_field == ' ' || *event_field == '\t' || *event_field == ':' || *event_field == '"') {
+                    event_field++;
+                }
+                
+                // Find closing quote
+                char *end_quote = strchr(event_field, '"');
+                
+                if (end_quote != NULL && (end_quote - event_field) > 0) {
+                    int len = (end_quote - event_field) < 63 ? (end_quote - event_field) : 63;
+                    strncpy(event_value, event_field, len);
+                    event_value[len] = '\0';
+                }
+            }
+            
+            // Log parsed event
+            printf("=== SESSION EVENT: '%s' ===\n", event_value);
+        //#########################################################################################
+
+    //    UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, (char *)message->payload);
+       UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, event_value);
        lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
        lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
       if (
-          strcmp((char *)message->payload, "StoppingCharging") == 0 ||
-          strcmp((char *)message->payload, "Finished") == 0 ||
-          strcmp((char *)message->payload, "Idle") == 0
+          strcmp(event_value, "TransactionFinished") == 0 ||
+          strcmp(event_value, "SessionFinished") == 0 ||
+          strcmp(event_value, "Enabled") == 0 ||
+          strcmp(event_value, "ChargingFinished") == 0
       ) {
           
           // Skip if already processed to prevent duplicate processing
@@ -980,30 +1015,32 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
   
       // Calculate duration
-      startTimeInSeconds = timeToSeconds(startTime);
-  endTimeInSeconds = timeToSeconds(endTime);
-  
-  diffInSeconds = endTimeInSeconds - startTimeInSeconds;
-  if (diffInSeconds < 0){
-    diffInSeconds += 86400;
-  }
-  diffTime = secondsToTime(diffInSeconds);
-  
-  if (diffTime.hours == 12){
-    diffTime.hours = 00;
-  }
+        startTimeInSeconds = timeToSeconds(startTime);
+        endTimeInSeconds = timeToSeconds(endTime);
+        
+        diffInSeconds = endTimeInSeconds - startTimeInSeconds;
+        if (diffInSeconds < 0){
+            diffInSeconds += 86400;
+        }
+        diffTime = secondsToTime(diffInSeconds);
+        
+        if (diffTime.hours == 12){
+            diffTime.hours = 00;
+        }
 
-  // Format end time string
-  snprintf(string_time_out, sizeof(string_time_out), "%02d:%02d:%02d %s", 
+            // Format end time string
+            snprintf(string_time_out, sizeof(string_time_out), "%02d:%02d:%02d %s", 
            endTime.hours, endTime.minutes, endTime.seconds,
            (endTime.ampm == 'A') ? "AM" : "PM");
-  snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
-           diffTime.hours, diffTime.minutes, diffTime.seconds);
+            snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
+            diffTime.hours, diffTime.minutes, diffTime.seconds);
 
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
           if (is_session_started){
+            printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+            printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             battery_level = 20.0;
             totalKWattHr = 0.000;
             mqtt_power_kw = 0.0f;
@@ -1028,7 +1065,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
       }
       // Capture pause time (handles both manual and automatic pause)
-      if (strcmp((char *)message->payload, "EVSE Paused") == 0) {
+      if (strcmp(event_value, "EVSE Paused") == 0) {
           set_screen_digital_clock_1();
           pauseTime.hours = atoi(hour);
           pauseTime.minutes = atoi(minutes);
@@ -1039,9 +1076,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
       // Existing grouped condition (keep as is)
       if (
-          strcmp((char *)message->payload, "Wait for Auth") == 0 ||
-          strcmp((char *)message->payload, "EVSE Paused") == 0 ||
-          strcmp((char *)message->payload, "Wait for energy") == 0
+          strcmp(event_value, "SessionStarted") == 0 ||
+          strcmp(event_value, "AuthRequired") == 0 ||
+          strcmp(event_value, "ChargingFinished") == 0
           // strcmp((char *)message->payload, "PrepareCharging") == 0
       ) {
           active_session = false;
@@ -1050,22 +1087,23 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
 
       if (
-          strcmp((char *)message->payload, "Wait for Auth") == 0
+          strcmp(event_value, "AuthRequired") == 0
       ) {
           active_session = false;
           lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
           UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Plugged in");
           sleep(1);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Wait for Auth");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "AuthRequired");
           is_new_session = true;	
       }
       if (
-          strcmp((char *)message->payload, "Charging") == 0
+          strcmp(event_value, "ChargingStarted") == 0
       ) {
           active_session = true;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_plugged_alpha_1280x800);
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
           
+          lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
           // ADD THIS ENTIRE BLOCK
           if (!start_time_captured && is_session_started) {
               char string_time[20];
@@ -1085,9 +1123,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             //   printf("Start time captured at Charging state: %s\n", string_time);
           }
       }      
-      if ((strcmp((char *)message->payload,"PrepareCharging") == 0) && (is_new_session)){
+      if ((strcmp(event_value,"Authorized") == 0) && (is_new_session)){
         lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Authenticating...");
+        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Authenticating...");
         char string_time[20];
         set_screen_digital_clock_1();
         is_session_started = true;
@@ -1273,565 +1311,602 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 message->payloadlen, message->payload);
       }
     
-    } else if (strcmp(topic, "everest_external/nodered/1/ev/ev_id") == 0) {
-      char ev_id_display[128];
-      
-      // Check if payload is empty or null
-      if (message->payloadlen > 0 && message->payload != NULL) {
-          snprintf(ev_id_display, sizeof(ev_id_display), "EV ID: %s", (char *)message->payload);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, ev_id_display);
-          printf("EV ID: %s\n", (char *)message->payload);
-      } else {
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
-          printf("EV ID: NA (empty payload)\n");
-    }
-    
-    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
-    // Store MQTT battery level
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        mqtt_battery_level = atof((char *)message->payload);
-        printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
-    } else {
-        mqtt_battery_level = -1.0f;  // Reset to no data
-        printf("Battery Level: No data (empty payload)\n");
-    }
-    
-  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/mode") == 0) {
-    char iso_mode_display[32];
-      
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char mode = ((char *)message->payload)[0];  // Get first character (A, B, C, D, E, or F)
-          
-        // Validate mode is A-F
-        if ((mode >= 'A' && mode <= 'F') || (mode >= 'a' && mode <= 'f')) {
-            snprintf(label_iso_mode_buffer, sizeof(label_iso_mode_buffer), "ISO Mode: %c", toupper(mode));
-            lv_label_set_text_static(guider_ui.screen_label_52, label_iso_mode_buffer);
-            printf("ISO 15118 Mode: %c\n", toupper(mode));
-        } else {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
-            printf("ISO 15118 Mode: Invalid mode '%s'\n", (char *)message->payload);
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info") == 0) {
+        // Validate payload
+        if (message->payloadlen <= 0 || message->payload == NULL) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
+            printf("ev_info: Empty payload\n");
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
         }
-    } else {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
-        printf("ISO 15118 Mode: NA (empty payload)\n");
-    }
-    
-  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol") == 0) {
-    char protocol_display[64];
-    
-    if (message->payloadlen > 0 && message->payload != NULL) {
+        
         char *payload_str = (char *)message->payload;
         
-        // The payload is a simple string value like "IEC61851-1" or "Unknown"
-        // Remove quotes if present
-        char protocol[64] = {0};
-        int idx = 0;
-        
-        for (int i = 0; i < message->payloadlen && i < 63; i++) {
-            char c = payload_str[i];
-            // Skip quotes
-            if (c != '"' && c != '\0') {
-                protocol[idx++] = c;
-            }
-        }
-        protocol[idx] = '\0';
-        
-        // Check for known protocols
-        if (strcasecmp(protocol, "Unknown") == 0) {
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Unknown");
-        } else if (strstr(protocol, "15118-2") != NULL || 
-                   strstr(protocol, "15118_2") != NULL ||
-                   strcasecmp(protocol, "ISO15118-2") == 0 ||
-                   strcasecmp(protocol, "ISO 15118-2") == 0) {
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-2");
-        } else if (strstr(protocol, "15118-20") != NULL || 
-                   strstr(protocol, "15118_20") != NULL ||
-                   strcasecmp(protocol, "ISO15118-20") == 0 ||
-                   strcasecmp(protocol, "ISO 15118-20") == 0) {
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-20");
-        } else if (strcasecmp(protocol, "IEC61851-1") == 0 ||
-                   strcasecmp(protocol, "IEC 61851-1") == 0 ||
-                   strcasecmp(protocol, "IEC61851") == 0 ||
-                   strcasecmp(protocol, "Basic") == 0 ||
-                   strstr(protocol, "61851") != NULL) {
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Basic");
-        } else if (strlen(protocol) > 0) {
-            // Display the raw protocol value if not empty and unknown
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: %s", protocol);
-        } else {
-            snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: NA");
-        }
-        
-        lv_label_set_text_static(guider_ui.screen_label_53, label_protocol_buffer);;
-        printf("Selected Protocol: %s\n", protocol);
-    } else {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
-        printf("Selected Protocol: NA (empty payload)\n");
-    }
-  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter") == 0) {
-   // Validate payload
-    if (message->payloadlen <= 0 || message->payload == NULL) {
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
-    
-    char *payload_str = (char *)message->payload;
-    
-    // Parse voltage_V -> L1
-    char *voltage_v_start = strstr(payload_str, "\"voltage_V\":");
-    if (voltage_v_start != NULL) {
-        char *l1_start = strstr(voltage_v_start, "\"L1\":");
-        if (l1_start != NULL) {
-            l1_start += 5;
-            while (*l1_start == ' ' || *l1_start == '\t') {
-                l1_start++;
-            }
-            
-            float voltage_l1 = atof(l1_start);
-            static char voltage_display[32];
-            snprintf(voltage_display, sizeof(voltage_display), "Voltage: %.1f V", voltage_l1);
-            lv_label_set_text_static(guider_ui.screen_label_54, voltage_display);
-            // printf("Voltage L1 (MQTT): %.1f V\n", voltage_l1);
-        }
-    }
-    
-    // Parse current_A -> L1
-    char *current_a_start = strstr(payload_str, "\"current_A\":");
-    if (current_a_start != NULL) {
-        char *l1_start = strstr(current_a_start, "\"L1\":");
-        if (l1_start != NULL) {
-            l1_start += 5;
-            while (*l1_start == ' ' || *l1_start == '\t') {
-                l1_start++;
-            }
-            
-            float current_l1 = atof(l1_start);
-            snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
-            lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
-            // printf("Current L1 (MQTT): %.1f A\n", current_l1);
-        }
-    }
+        // Parse evcc_id field from JSON
+        char *evcc_id_field = strstr(payload_str, "\"evcc_id\":");
 
-    // Parse temperatures array -> Body location
-    char *temp_array_start = strstr(payload_str, "\"temperatures\":");
-    if (temp_array_start != NULL) {
-        // Find "Body" location within temperatures array
-        char *body_location = strstr(temp_array_start, "\"location\": \"Body\"");
-        
-        if (body_location != NULL) {
-            // Find temperature field after Body location
-            char *temp_field = strstr(body_location, "\"temperature\":");
+        if (evcc_id_field != NULL) {
+            evcc_id_field += 10;  // Skip past "evcc_id":
             
-            if (temp_field != NULL) {
-                temp_field += 14;  // Skip past "temperature":
+            // Skip whitespace and opening quote
+            while (*evcc_id_field == ' ' || *evcc_id_field == '\t' || *evcc_id_field == '"') {
+                evcc_id_field++;
+            }
+            
+            // Find closing quote
+            char *end_quote = strchr(evcc_id_field, '"');
+            
+            if (end_quote != NULL && (end_quote - evcc_id_field) > 0) {
+                int evcc_id_len = end_quote - evcc_id_field;
+                char evcc_id[96];
+                int len = evcc_id_len < 95 ? evcc_id_len : 95;
+                strncpy(evcc_id, evcc_id_field, len);
+                evcc_id[len] = '\0';
                 
-                while (*temp_field == ' ' || *temp_field == '\t' || *temp_field == ':') {
-                    temp_field++;
+                // Display as "EV ID: 00:01:01:65:76:30"
+                char ev_id_display[128];
+                snprintf(ev_id_display, sizeof(ev_id_display), "EV ID: %s", evcc_id);
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, ev_id_display);
+                printf("EV ID (EVCC): %s\n", evcc_id);
+            } else {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
+                printf("ev_info: Failed to parse evcc_id value\n");
+            }
+        } else {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
+            printf("ev_info: evcc_id field not found in payload\n");
+        }
+
+
+    
+    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
+        // Store MQTT battery level
+        if (message->payloadlen > 0 && message->payload != NULL) {
+            mqtt_battery_level = atof((char *)message->payload);
+            printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
+        } else {
+            mqtt_battery_level = -1.0f;  // Reset to no data
+            printf("Battery Level: No data (empty payload)\n");
+        }
+        
+    } else if (strcmp(topic, "everest_external/nodered/1/iso15118/mode") == 0) {
+        char iso_mode_display[32];
+        
+        if (message->payloadlen > 0 && message->payload != NULL) {
+            char mode = ((char *)message->payload)[0];  // Get first character (A, B, C, D, E, or F)
+            
+            // Validate mode is A-F
+            if ((mode >= 'A' && mode <= 'F') || (mode >= 'a' && mode <= 'f')) {
+                snprintf(label_iso_mode_buffer, sizeof(label_iso_mode_buffer), "ISO Mode: %c", toupper(mode));
+                lv_label_set_text_static(guider_ui.screen_label_52, label_iso_mode_buffer);
+                printf("ISO 15118 Mode: %c\n", toupper(mode));
+            } else {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
+                printf("ISO 15118 Mode: Invalid mode '%s'\n", (char *)message->payload);
+            }
+        } else {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
+            printf("ISO 15118 Mode: NA (empty payload)\n");
+        }
+        
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol") == 0) {
+        char protocol_display[64];
+        
+        if (message->payloadlen > 0 && message->payload != NULL) {
+            char *payload_str = (char *)message->payload;
+            
+            // The payload is a simple string value like "IEC61851-1" or "Unknown"
+            // Remove quotes if present
+            char protocol[64] = {0};
+            int idx = 0;
+            
+            for (int i = 0; i < message->payloadlen && i < 63; i++) {
+                char c = payload_str[i];
+                // Skip quotes
+                if (c != '"' && c != '\0') {
+                    protocol[idx++] = c;
+                }
+            }
+            protocol[idx] = '\0';
+            
+            // Check for known protocols
+            if (strcasecmp(protocol, "Unknown") == 0) {
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Unknown");
+            } else if (strstr(protocol, "15118-2") != NULL || 
+                    strstr(protocol, "15118_2") != NULL ||
+                    strcasecmp(protocol, "ISO15118-2") == 0 ||
+                    strcasecmp(protocol, "ISO 15118-2") == 0) {
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-2");
+            } else if (strstr(protocol, "15118-20") != NULL || 
+                    strstr(protocol, "15118_20") != NULL ||
+                    strcasecmp(protocol, "ISO15118-20") == 0 ||
+                    strcasecmp(protocol, "ISO 15118-20") == 0) {
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: ISO 15118-20");
+            } else if (strcasecmp(protocol, "IEC61851-1") == 0 ||
+                    strcasecmp(protocol, "IEC 61851-1") == 0 ||
+                    strcasecmp(protocol, "IEC61851") == 0 ||
+                    strcasecmp(protocol, "Basic") == 0 ||
+                    strstr(protocol, "61851") != NULL) {
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: Basic");
+            } else if (strlen(protocol) > 0) {
+                // Display the raw protocol value if not empty and unknown
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: %s", protocol);
+            } else {
+                snprintf(label_protocol_buffer, sizeof(label_protocol_buffer), "Protocol: NA");
+            }
+            
+            lv_label_set_text_static(guider_ui.screen_label_53, label_protocol_buffer);;
+            printf("Selected Protocol: %s\n", protocol);
+        } else {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
+            printf("Selected Protocol: NA (empty payload)\n");
+        }
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter") == 0) {
+    // Validate payload
+        if (message->payloadlen <= 0 || message->payload == NULL) {
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
+        
+        char *payload_str = (char *)message->payload;
+        
+        // Parse voltage_V -> L1
+        char *voltage_v_start = strstr(payload_str, "\"voltage_V\":");
+        if (voltage_v_start != NULL) {
+            char *l1_start = strstr(voltage_v_start, "\"L1\":");
+            if (l1_start != NULL) {
+                l1_start += 5;
+                while (*l1_start == ' ' || *l1_start == '\t') {
+                    l1_start++;
                 }
                 
-                float temperature = atof(temp_field);
-                
-                static char temp_display[16];
-                snprintf(temp_display, sizeof(temp_display), "%.0f", temperature);
-                
-                lv_label_set_text_static(guider_ui.screen_label_4, temp_display);
-                // printf("Temperature (Body): %.1f°C\n", temperature);
+                float voltage_l1 = atof(l1_start);
+                static char voltage_display[32];
+                snprintf(voltage_display, sizeof(voltage_display), "Voltage: %.1f V", voltage_l1);
+                lv_label_set_text_static(guider_ui.screen_label_54, voltage_display);
+                // printf("Voltage L1 (MQTT): %.1f V\n", voltage_l1);
             }
         }
-    }
-    
+        
+        // Parse current_A -> L1
+        char *current_a_start = strstr(payload_str, "\"current_A\":");
+        if (current_a_start != NULL) {
+            char *l1_start = strstr(current_a_start, "\"L1\":");
+            if (l1_start != NULL) {
+                l1_start += 5;
+                while (*l1_start == ' ' || *l1_start == '\t') {
+                    l1_start++;
+                }
+                
+                float current_l1 = atof(l1_start);
+                snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
+                lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
+                // printf("Current L1 (MQTT): %.1f A\n", current_l1);
+            }
+        }
 
-  } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
-    char direction_display[32];
-      
-    if (message->payloadlen > 0 && message->payload != NULL) {
-        char *direction = (char *)message->payload;
-          
-        // Check for G2V (Grid to Vehicle - Charging)
-        if (strcasecmp(direction, "G2V") == 0 ||
-            strcasecmp(direction, "Grid2Vehicle") == 0 ||
-            strcasecmp(direction, "GridToVehicle") == 0 ||
-            strcasecmp(direction, "Grid to Vehicle") == 0 ||
-            strstr(direction, "G2V") != NULL ||
-            strstr(direction, "g2v") != NULL) {
-            snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
-            lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
-            printf("ISO 15118 Direction: G2V (Grid to Vehicle - Charging)\n");
+        // Parse temperatures array -> Body location
+        char *temp_array_start = strstr(payload_str, "\"temperatures\":");
+        if (temp_array_start != NULL) {
+            // Find "Body" location within temperatures array
+            char *body_location = strstr(temp_array_start, "\"location\": \"Body\"");
+            
+            if (body_location != NULL) {
+                // Find temperature field after Body location
+                char *temp_field = strstr(body_location, "\"temperature\":");
+                
+                if (temp_field != NULL) {
+                    temp_field += 14;  // Skip past "temperature":
+                    
+                    while (*temp_field == ' ' || *temp_field == '\t' || *temp_field == ':') {
+                        temp_field++;
+                    }
+                    
+                    float temperature = atof(temp_field);
+                    
+                    static char temp_display[16];
+                    snprintf(temp_display, sizeof(temp_display), "%.0f", temperature);
+                    
+                    lv_label_set_text_static(guider_ui.screen_label_4, temp_display);
+                    // printf("Temperature (Body): %.1f°C\n", temperature);
+                }
+            }
         }
-        // Check for V2G (Vehicle to Grid - Discharging)
-        else if (strcasecmp(direction, "V2G") == 0 ||
-                      strcasecmp(direction, "Vehicle2Grid") == 0 ||
-                      strcasecmp(direction, "VehicleToGrid") == 0 ||
-                      strcasecmp(direction, "Vehicle to Grid") == 0 ||
-                      strstr(direction, "V2G") != NULL ||
-                      strstr(direction, "v2g") != NULL) {
-            snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
-            lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
-            printf("ISO 15118 Direction: V2G (Vehicle to Grid - Discharging)\n");
-        }
-        // Unknown or invalid direction
-        else {
+        
+
+    } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
+        char direction_display[32];
+        
+        if (message->payloadlen > 0 && message->payload != NULL) {
+            char *direction = (char *)message->payload;
+            
+            // Check for G2V (Grid to Vehicle - Charging)
+            if (strcasecmp(direction, "G2V") == 0 ||
+                strcasecmp(direction, "Grid2Vehicle") == 0 ||
+                strcasecmp(direction, "GridToVehicle") == 0 ||
+                strcasecmp(direction, "Grid to Vehicle") == 0 ||
+                strstr(direction, "G2V") != NULL ||
+                strstr(direction, "g2v") != NULL) {
+                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
+                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
+                printf("ISO 15118 Direction: G2V (Grid to Vehicle - Charging)\n");
+            }
+            // Check for V2G (Vehicle to Grid - Discharging)
+            else if (strcasecmp(direction, "V2G") == 0 ||
+                        strcasecmp(direction, "Vehicle2Grid") == 0 ||
+                        strcasecmp(direction, "VehicleToGrid") == 0 ||
+                        strcasecmp(direction, "Vehicle to Grid") == 0 ||
+                        strstr(direction, "V2G") != NULL ||
+                        strstr(direction, "v2g") != NULL) {
+                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
+                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
+                printf("ISO 15118 Direction: V2G (Vehicle to Grid - Discharging)\n");
+            }
+            // Unknown or invalid direction
+            else {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
+                printf("ISO 15118 Direction: Unknown (%s)\n", direction);
+            }
+        } else {
             UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-            printf("ISO 15118 Direction: Unknown (%s)\n", direction);
+            printf("ISO 15118 Direction: NA (empty payload)\n");
         }
-    } else {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-        printf("ISO 15118 Direction: NA (empty payload)\n");
-    }
-  
-  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
-    char connection_display[32];
-        // Validate payload
-    if (message->payloadlen <= 0 || message->payload == NULL) {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
     
-    char *payload_str = (char *)message->payload;
-    char *connector_start = strstr(payload_str, "\"connector_type\":");
-    
-    // Check if connector_type field exists
-    if (connector_start == NULL) {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
+        char connection_display[32];
+            // Validate payload
+        if (message->payloadlen <= 0 || message->payload == NULL) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
+        
+        char *payload_str = (char *)message->payload;
+        char *connector_start = strstr(payload_str, "\"connector_type\":");
+        
+        // Check if connector_type field exists
+        if (connector_start == NULL) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
 
-    // Skip past "connector_type": and whitespace/quotes
-    connector_start += 17;
-    while (*connector_start == ' ' || *connector_start == '\t' || *connector_start == '"') {
-        connector_start++;
-    }
-    
-    // Find closing quote
-    char *connector_end = strchr(connector_start, '"');
-    if (connector_end == NULL || (connector_end - connector_start) <= 0) {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
-
-    // Extract connector type string
-    int connector_len = connector_end - connector_start;
-    char connector_type[64];
-    strncpy(connector_type, connector_start, connector_len);
-    connector_type[connector_len] = '\0';
-    
-    // Map connector type to display string
-    const char *display_text = NULL;
-    
-    if (strcasestr(connector_type, "IEC62196Type2Cable") || strcasestr(connector_type, "Type2Cable")) {
-        display_text = "Sigboard: Type2 Cable";
-    } else if (strcasestr(connector_type, "IEC62196Type2Socket") || strcasestr(connector_type, "Type2Socket")) {
-        display_text = "Sigboard: Type2 Socket";
-    } else if (strcasestr(connector_type, "Type1")) {
-        display_text = "Sigboard: Type1";
-    } else if (strcasestr(connector_type, "CCS")) {
-        display_text = "Sigboard: CCS";
-    } else if (strcasestr(connector_type, "CHAdeMO")) {
-        display_text = "Sigboard: CHAdeMO";
-    } else {
-        // Unknown connector - display raw value
-        snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: %s", connector_type);
-        display_text = label_sigboard_buffer;
-    }
-    // Update label
-    if (display_text != label_sigboard_buffer) {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, display_text);
-    } else {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-    }
-  
-  } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info") == 0 ) {
-    if (message->payloadlen <= 0 || message->payload == NULL) {
-        printf("session_info: Empty payload\n");
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
-
-    char *payload_str = (char *)message->payload;
-
-    // Parse transaction_start_time
-    char *start_field = strstr(payload_str, "\"transaction_start_time\":");
-    if (start_field != NULL) {
-        start_field += 25;  // Skip past "transaction_start_time":
-        
-        // Skip whitespace and quotes
-        while (*start_field == ' ' || *start_field == '\t' || *start_field == '"') {
-            start_field++;
-        }
-        
-        char *end_quote = strchr(start_field, '"');
-        if (end_quote != NULL && (end_quote - start_field) > 0) {
-            char iso_start[64];
-            int len = (end_quote - start_field) < 63 ? (end_quote - start_field) : 63;
-            strncpy(iso_start, start_field, len);
-            iso_start[len] = '\0';
-            
-            char local_time[32];
-            if (parse_iso8601_to_local(iso_start, local_time, sizeof(local_time))) {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, local_time);
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_start_time_summary, local_time);
-                // printf("Session start time (MQTT): %s\n", local_time);
-                is_mqtt_end_time_captured = false;
-            }
-        }
-    }
-
-    // Parse transaction_end_time
-    char *end_field = strstr(payload_str, "\"transaction_end_time\":");
-    if (end_field != NULL) {
-        end_field += 23;  // Skip past "transaction_end_time":
-        
-        // Skip whitespace and quotes
-        while (*end_field == ' ' || *end_field == '\t' || *end_field == '"') {
-            end_field++;
-        }
-        
-        char *end_quote = strchr(end_field, '"');
-        if (end_quote != NULL && (end_quote - end_field) > 0) {
-            char iso_end[64];
-            int len = (end_quote - end_field) < 63 ? (end_quote - end_field) : 63;
-            strncpy(iso_end, end_field, len);
-            iso_end[len] = '\0';
-            
-            char local_time[32];
-            if (parse_iso8601_to_local(iso_end, local_time, sizeof(local_time))) {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, local_time);
-                // printf("Session end time (MQTT): %s\n", local_time);
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, "--:--:--");
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_time_buffer, "--:--:--");
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
-                is_mqtt_end_time_captured = true;
-                // printf("(MQTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT): %s\n", local_time);
-            }
-        }
-    }
-
-    // Parse transaction_duration_s (already working!)
-    char *duration_field = strstr(payload_str, "\"transaction_duration_s\":");
-    if (duration_field != NULL) {
-        duration_field += 25;
-        while (*duration_field == ' ' || *duration_field == '\t' || *duration_field == ':') {
-            duration_field++;
-        }
-        
-        int duration_seconds = atoi(duration_field);
-        if (duration_seconds >= 0) {
-            char duration_str[32];
-            format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
-            // printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
-        }
-    }
-
-    // Parse charged_energy_wh → Feed into existing energy logic
-    char *energy_field = strstr(payload_str, "\"charged_energy_wh\":");
-    if (energy_field != NULL) {
-        energy_field += 20;  // Skip past "charged_energy_wh":
-        
-        while (*energy_field == ' ' || *energy_field == '\t' || *energy_field == ':') {
-            energy_field++;
-        }
-        
-        int energy_wh = atoi(energy_field);
-        mqtt_energy_kwh = energy_wh / 1000.0f;  // Convert Wh to kWh
-        snprintf(final_energy, sizeof(final_energy), "%.3fkWh", mqtt_energy_kwh);
-        
-        // snprintf(final_energy, sizeof(final_energy), "%.3f", mqtt_energy_kwh);
-        if (is_mqtt_end_time_captured){
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
-        }
-        else{
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
-        }
-        
-        // printf("Charged energy (MQTT): %d Wh → %.3f kWh\n", energy_wh, final_energy);
-    }
-
-  } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
-      char *payload_str = (char *)message->payload;
-    char uid_display[64];
-    char type_display[64];
-    char status_display[64];
-    
-    // Find "value" field in id_token for UID
-    char *value_start = strstr(payload_str, "\"value\":");
-    
-    if (value_start != NULL) {
-        value_start += 8;  // Skip past "value":
-        
-        // Skip whitespace and opening quote
-        while (*value_start == ' ' || *value_start == '\t' || *value_start == '"') {
-            value_start++;
+        // Skip past "connector_type": and whitespace/quotes
+        connector_start += 17;
+        while (*connector_start == ' ' || *connector_start == '\t' || *connector_start == '"') {
+            connector_start++;
         }
         
         // Find closing quote
-        char *value_end = strchr(value_start, '"');
+        char *connector_end = strchr(connector_start, '"');
+        if (connector_end == NULL || (connector_end - connector_start) <= 0) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
+
+        // Extract connector type string
+        int connector_len = connector_end - connector_start;
+        char connector_type[64];
+        strncpy(connector_type, connector_start, connector_len);
+        connector_type[connector_len] = '\0';
         
-        if (value_end != NULL && (value_end - value_start) > 0) {
-            int uid_len = value_end - value_start;
-            char uid_raw[64];
-            strncpy(uid_raw, value_start, uid_len);
-            uid_raw[uid_len] = '\0';
+        // Map connector type to display string
+        const char *display_text = NULL;
+        
+        if (strcasestr(connector_type, "IEC62196Type2Cable") || strcasestr(connector_type, "Type2Cable")) {
+            display_text = "Sigboard: Type2 Cable";
+        } else if (strcasestr(connector_type, "IEC62196Type2Socket") || strcasestr(connector_type, "Type2Socket")) {
+            display_text = "Sigboard: Type2 Socket";
+        } else if (strcasestr(connector_type, "Type1")) {
+            display_text = "Sigboard: Type1";
+        } else if (strcasestr(connector_type, "CCS")) {
+            display_text = "Sigboard: CCS";
+        } else if (strcasestr(connector_type, "CHAdeMO")) {
+            display_text = "Sigboard: CHAdeMO";
+        } else {
+            // Unknown connector - display raw value
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: %s", connector_type);
+            display_text = label_sigboard_buffer;
+        }
+        // Update label
+        if (display_text != label_sigboard_buffer) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, display_text);
+        } else {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+        }
+    
+    } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info") == 0 ) {
+        if (message->payloadlen <= 0 || message->payload == NULL) {
+            printf("session_info: Empty payload\n");
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
+
+        char *payload_str = (char *)message->payload;
+
+        // Parse transaction_start_time
+        char *start_field = strstr(payload_str, "\"transaction_start_time\":");
+        if (start_field != NULL) {
+            start_field += 25;  // Skip past "transaction_start_time":
             
-            // Clean: keep only hex characters
-            char uid_clean[64] = {0};
-            int clean_idx = 0;
-            for (int i = 0; i < uid_len && clean_idx < 63; i++) {
-                char c = uid_raw[i];
-                if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-                    uid_clean[clean_idx++] = toupper(c);
-                }
+            // Skip whitespace and quotes
+            while (*start_field == ' ' || *start_field == '\t' || *start_field == '"') {
+                start_field++;
             }
             
-            int clean_len = strlen(uid_clean);
-            
-            // Format with colons if valid length (4, 7, or 10 bytes)
-            if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
-                char uid_formatted[32] = {0};
-                int fmt_idx = 0;
-                for (int i = 0; i < clean_len; i += 2) {
-                    if (i > 0) uid_formatted[fmt_idx++] = ':';
-                    uid_formatted[fmt_idx++] = uid_clean[i];
-                    uid_formatted[fmt_idx++] = uid_clean[i + 1];
+            char *end_quote = strchr(start_field, '"');
+            if (end_quote != NULL && (end_quote - start_field) > 0) {
+                char iso_start[64];
+                int len = (end_quote - start_field) < 63 ? (end_quote - start_field) : 63;
+                strncpy(iso_start, start_field, len);
+                iso_start[len] = '\0';
+                
+                char local_time[32];
+                if (parse_iso8601_to_local(iso_start, local_time, sizeof(local_time))) {
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, local_time);
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_start_time_summary, local_time);
+                    // printf("Session start time (MQTT): %s\n", local_time);
+                    is_mqtt_end_time_captured = false;
                 }
-                snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: %s", uid_formatted);
+            }
+        }
+
+        // Parse transaction_end_time
+        char *end_field = strstr(payload_str, "\"transaction_end_time\":");
+        if (end_field != NULL) {
+            end_field += 23;  // Skip past "transaction_end_time":
+            
+            // Skip whitespace and quotes
+            while (*end_field == ' ' || *end_field == '\t' || *end_field == '"') {
+                end_field++;
+            }
+            
+            char *end_quote = strchr(end_field, '"');
+            if (end_quote != NULL && (end_quote - end_field) > 0) {
+                char iso_end[64];
+                int len = (end_quote - end_field) < 63 ? (end_quote - end_field) : 63;
+                strncpy(iso_end, end_field, len);
+                iso_end[len] = '\0';
+                
+                char local_time[32];
+                if (parse_iso8601_to_local(iso_end, local_time, sizeof(local_time))) {
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, local_time);
+                    // printf("Session end time (MQTT): %s\n", local_time);
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_start_time_main, "--:--:--");
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_time_buffer, "--:--:--");
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+                    is_mqtt_end_time_captured = true;
+                    // printf("(MQTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT): %s\n", local_time);
+                }
+            }
+        }
+
+        // Parse transaction_duration_s (already working!)
+        char *duration_field = strstr(payload_str, "\"transaction_duration_s\":");
+        if (duration_field != NULL) {
+            duration_field += 25;
+            while (*duration_field == ' ' || *duration_field == '\t' || *duration_field == ':') {
+                duration_field++;
+            }
+            
+            int duration_seconds = atoi(duration_field);
+            if (duration_seconds >= 0) {
+                char duration_str[32];
+                format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
+                // printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
+            }
+        }
+
+        // Parse charged_energy_wh → Feed into existing energy logic
+        char *energy_field = strstr(payload_str, "\"charged_energy_wh\":");
+        if (energy_field != NULL) {
+            energy_field += 20;  // Skip past "charged_energy_wh":
+            
+            while (*energy_field == ' ' || *energy_field == '\t' || *energy_field == ':') {
+                energy_field++;
+            }
+            
+            int energy_wh = atoi(energy_field);
+            mqtt_energy_kwh = energy_wh / 1000.0f;  // Convert Wh to kWh
+            snprintf(final_energy, sizeof(final_energy), "%.3fkWh", mqtt_energy_kwh);
+            
+            // snprintf(final_energy, sizeof(final_energy), "%.3f", mqtt_energy_kwh);
+            if (is_mqtt_end_time_captured){
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+            }
+            else{
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
+            }
+            
+            // printf("Charged energy (MQTT): %d Wh → %.3f kWh\n", energy_wh, final_energy);
+        }
+
+    } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
+        char *payload_str = (char *)message->payload;
+        char uid_display[64];
+        char type_display[64];
+        char status_display[64];
+        
+        // Find "value" field in id_token for UID
+        char *value_start = strstr(payload_str, "\"value\":");
+        
+        if (value_start != NULL) {
+            value_start += 8;  // Skip past "value":
+            
+            // Skip whitespace and opening quote
+            while (*value_start == ' ' || *value_start == '\t' || *value_start == '"') {
+                value_start++;
+            }
+            
+            // Find closing quote
+            char *value_end = strchr(value_start, '"');
+            
+            if (value_end != NULL && (value_end - value_start) > 0) {
+                int uid_len = value_end - value_start;
+                char uid_raw[64];
+                strncpy(uid_raw, value_start, uid_len);
+                uid_raw[uid_len] = '\0';
+                
+                // Clean: keep only hex characters
+                char uid_clean[64] = {0};
+                int clean_idx = 0;
+                for (int i = 0; i < uid_len && clean_idx < 63; i++) {
+                    char c = uid_raw[i];
+                    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+                        uid_clean[clean_idx++] = toupper(c);
+                    }
+                }
+                
+                int clean_len = strlen(uid_clean);
+                
+                // Format with colons if valid length (4, 7, or 10 bytes)
+                if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
+                    char uid_formatted[32] = {0};
+                    int fmt_idx = 0;
+                    for (int i = 0; i < clean_len; i += 2) {
+                        if (i > 0) uid_formatted[fmt_idx++] = ':';
+                        uid_formatted[fmt_idx++] = uid_clean[i];
+                        uid_formatted[fmt_idx++] = uid_clean[i + 1];
+                    }
+                    snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: %s", uid_formatted);
+                } else {
+                    snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
+                }
             } else {
                 snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
             }
         } else {
             snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
         }
-    } else {
-        snprintf(label_uid_buffer, sizeof(label_uid_buffer), "UID: NA");
-    }
-    
-    lv_label_set_text_static(guider_ui.screen_label_57, label_uid_buffer);
-    
-    // Find "type" field in id_token for Card Type
-    char *type_start = strstr(payload_str, "\"type\":");
-    
-    if (type_start != NULL) {
-        type_start += 7;  // Skip past "type":
         
-        // Skip whitespace and opening quote
-        while (*type_start == ' ' || *type_start == '\t' || *type_start == '"') {
-            type_start++;
-        }
+        lv_label_set_text_static(guider_ui.screen_label_57, label_uid_buffer);
         
-        // Find closing quote
-        char *type_end = strchr(type_start, '"');
+        // Find "type" field in id_token for Card Type
+        char *type_start = strstr(payload_str, "\"type\":");
         
-        if (type_end != NULL && (type_end - type_start) > 0) {
-            int type_len = type_end - type_start;
-            char card_type[64];
-            strncpy(card_type, type_start, type_len);
-            card_type[type_len] = '\0';
+        if (type_start != NULL) {
+            type_start += 7;  // Skip past "type":
             
-            // Check for known card types
-            if (strcasecmp(card_type, "Local") == 0) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Local");
-            } else if (strcasecmp(card_type, "ISO14443") == 0 || 
-                       strcasestr(card_type, "14443") != NULL) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO14443");
-            } else if (strcasestr(card_type, "MIFARE") != NULL) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: MIFARE");
-            } else if (strcasestr(card_type, "NTAG") != NULL) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NTAG");
-            } else if (strcasecmp(card_type, "Central") == 0) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Central");
-            } else if (strcasecmp(card_type, "eMAID") == 0) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: eMAID");
-            } else if (strcasecmp(card_type, "ISO15693") == 0 || 
-                       strcasestr(card_type, "15693") != NULL) {
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO15693");
+            // Skip whitespace and opening quote
+            while (*type_start == ' ' || *type_start == '\t' || *type_start == '"') {
+                type_start++;
+            }
+            
+            // Find closing quote
+            char *type_end = strchr(type_start, '"');
+            
+            if (type_end != NULL && (type_end - type_start) > 0) {
+                int type_len = type_end - type_start;
+                char card_type[64];
+                strncpy(card_type, type_start, type_len);
+                card_type[type_len] = '\0';
+                
+                // Check for known card types
+                if (strcasecmp(card_type, "Local") == 0) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Local");
+                } else if (strcasecmp(card_type, "ISO14443") == 0 || 
+                        strcasestr(card_type, "14443") != NULL) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO14443");
+                } else if (strcasestr(card_type, "MIFARE") != NULL) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: MIFARE");
+                } else if (strcasestr(card_type, "NTAG") != NULL) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NTAG");
+                } else if (strcasecmp(card_type, "Central") == 0) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: Central");
+                } else if (strcasecmp(card_type, "eMAID") == 0) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: eMAID");
+                } else if (strcasecmp(card_type, "ISO15693") == 0 || 
+                        strcasestr(card_type, "15693") != NULL) {
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: ISO15693");
+                } else {
+                    // Display the raw type value if unknown
+                    snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: %s", card_type);
+                }
             } else {
-                // Display the raw type value if unknown
-                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: %s", card_type);
+                snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NA");
             }
         } else {
             snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NA");
         }
-    } else {
-        snprintf(label_card_type_buffer, sizeof(label_card_type_buffer), "Type: NA");
-    }
-    
-    lv_label_set_text_static(guider_ui.screen_label_58, label_card_type_buffer);
-    
-    // Find "status" field for Card Status
-    char *status_start = strstr(payload_str, "\"status\":");
-    
-    if (status_start != NULL) {
-        status_start += 9;  // Skip past "status":
         
-        // Skip whitespace and opening quote
-        while (*status_start == ' ' || *status_start == '\t' || *status_start == '"') {
-            status_start++;
-        }
+        lv_label_set_text_static(guider_ui.screen_label_58, label_card_type_buffer);
         
-        // Find closing quote
-        char *status_end = strchr(status_start, '"');
+        // Find "status" field for Card Status
+        char *status_start = strstr(payload_str, "\"status\":");
         
-        if (status_end != NULL && (status_end - status_start) > 0) {
-            int status_len = status_end - status_start;
-            char card_status[64];
-            strncpy(card_status, status_start, status_len);
-            card_status[status_len] = '\0';
+        if (status_start != NULL) {
+            status_start += 9;  // Skip past "status":
             
-            // Check for Accepted/Authorized status
-            if (strcasecmp(card_status, "Accepted") == 0 ||
-                strcasecmp(card_status, "Authorized") == 0 ||
-                strcasecmp(card_status, "UsedToStart") == 0 ||
-                strcasecmp(card_status, "Valid") == 0 ||
-                strcasecmp(card_status, "OK") == 0) {
-                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Accepted");
-                lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
-                // Set text color to green
-                lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // Skip whitespace and opening quote
+            while (*status_start == ' ' || *status_start == '\t' || *status_start == '"') {
+                status_start++;
             }
-            // Check for Rejected/Denied status
-            else if (strcasecmp(card_status, "Rejected") == 0 ||
-                     strcasecmp(card_status, "Denied") == 0 ||
-                     strcasecmp(card_status, "Invalid") == 0 ||
-                     strcasecmp(card_status, "Blocked") == 0 ||
-                     strcasecmp(card_status, "Failed") == 0) {
-                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Rejected");
+            
+            // Find closing quote
+            char *status_end = strchr(status_start, '"');
+            
+            if (status_end != NULL && (status_end - status_start) > 0) {
+                int status_len = status_end - status_start;
+                char card_status[64];
+                strncpy(card_status, status_start, status_len);
+                card_status[status_len] = '\0';
+                
+                // Check for Accepted/Authorized status
+                if (strcasecmp(card_status, "Accepted") == 0 ||
+                    strcasecmp(card_status, "Authorized") == 0 ||
+                    strcasecmp(card_status, "UsedToStart") == 0 ||
+                    strcasecmp(card_status, "Valid") == 0 ||
+                    strcasecmp(card_status, "OK") == 0) {
+                    snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Accepted");
+                    lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
+                    // Set text color to green
+                    lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0x00FF00), LV_PART_MAIN|LV_STATE_DEFAULT);
+                }
+                // Check for Rejected/Denied status
+                else if (strcasecmp(card_status, "Rejected") == 0 ||
+                        strcasecmp(card_status, "Denied") == 0 ||
+                        strcasecmp(card_status, "Invalid") == 0 ||
+                        strcasecmp(card_status, "Blocked") == 0 ||
+                        strcasecmp(card_status, "Failed") == 0) {
+                    snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: Rejected");
+                    lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
+                    // Set text color to red
+                    lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
+                }
+                // Unknown status - display as-is
+                else {
+                    snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: %s", card_status);
+                    lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
+                    // Set text color to default gray/white
+                    lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+                }
+            } else {
+                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: NA");
                 lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
-                // Set text color to red
-                lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xFF0000), LV_PART_MAIN|LV_STATE_DEFAULT);
-            }
-            // Unknown status - display as-is
-            else {
-                snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: %s", card_status);
-                lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
-                // Set text color to default gray/white
                 lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
             }
         } else {
             snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: NA");
             lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+        
         }
-    } else {
-        snprintf(label_card_status_buffer, sizeof(label_card_status_buffer), "Status: NA");
-        lv_label_set_text_static(guider_ui.screen_label_59, label_card_status_buffer);
-        lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+
+    } 
+
+    MQTTClient_freeMessage(&message);
+    MQTTClient_free(topic);
+    return 1;
     }
-
-  } 
-
-  MQTTClient_freeMessage(&message);
-  MQTTClient_free(topic);
-  return 1;
-}
 
 
 // Helper function to unsubscribe from all MQTT topics
@@ -2087,8 +2162,8 @@ void increase_battery_level(){
     }
      
     
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
-    lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
+    // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
+    // lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
     
     battery_level_to_int = (int)battery_level;
     UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
@@ -2125,7 +2200,7 @@ void increase_battery_level(){
       pause_charging();  // This will now capture pause time inside the function
       printf("\nready to pause: elseIf\n");
       lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-      UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "00:00:00");
+      UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
       // Add dial data
         lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
         UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
