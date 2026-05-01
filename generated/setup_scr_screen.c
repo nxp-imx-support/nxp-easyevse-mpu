@@ -512,6 +512,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_label_set_long_mode(ui->screen_label_25, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_25, 1124, 743);
 	lv_obj_set_size(ui->screen_label_25, 79, 36);
+	lv_obj_add_flag(ui->screen_label_25, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_label_25, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_25, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -535,6 +536,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_label_set_long_mode(ui->screen_label_26, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_26, 1180, 743);
 	lv_obj_set_size(ui->screen_label_26, 71, 36);
+	lv_obj_add_flag(ui->screen_label_26, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_label_26, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_26, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -643,8 +645,9 @@ void setup_scr_screen(lv_ui *ui)
 	// add needle line for screen_meter_1_scale_0.
 	ui->screen_meter_1_scale_0_ndline_0 = lv_meter_add_needle_line(ui->screen_meter_1, screen_meter_1_scale_0, 5, lv_color_hex(0x00ff55), -10);
 	lv_meter_set_indicator_value(ui->screen_meter_1, ui->screen_meter_1_scale_0_ndline_0, 0);
-	lv_obj_set_pos(ui->screen_meter_1, 1105, 575);
+	lv_obj_set_pos(ui->screen_meter_1, 1103, 575);
 	lv_obj_set_size(ui->screen_meter_1, 167, 167);
+	lv_obj_add_flag(ui->screen_meter_1, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_meter_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_bg_opa(ui->screen_meter_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -828,7 +831,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_anim_time(ui->screen_bar_2, 1000, 0);
 	lv_bar_set_mode(ui->screen_bar_2, LV_BAR_MODE_NORMAL);
 	lv_bar_set_range(ui->screen_bar_2, 0, 100);
-	lv_bar_set_value(ui->screen_bar_2, 20, LV_ANIM_OFF);
+	lv_bar_set_value(ui->screen_bar_2, 0, LV_ANIM_OFF);
 	lv_obj_set_pos(ui->screen_bar_2, 356, 500);
 	lv_obj_set_size(ui->screen_bar_2, 202, 32);
 	lv_obj_add_flag(ui->screen_bar_2, LV_OBJ_FLAG_HIDDEN);
@@ -885,7 +888,7 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_38
 	ui->screen_label_38 = lv_label_create(ui->screen_cont_1);
-	lv_label_set_text(ui->screen_label_38, "20");
+	lv_label_set_text(ui->screen_label_38, "00");
 	lv_label_set_long_mode(ui->screen_label_38, LV_LABEL_LONG_CLIP);
 	lv_obj_set_pos(ui->screen_label_38, 483, 152);
 	lv_obj_set_size(ui->screen_label_38, 154, 82);
@@ -939,7 +942,7 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_19
 	ui->screen_label_19 = lv_label_create(ui->screen_cont_1);
-	lv_label_set_text(ui->screen_label_19, "20.0");
+	lv_label_set_text(ui->screen_label_19, "00.0");
 	lv_label_set_long_mode(ui->screen_label_19, LV_LABEL_LONG_CLIP);
 	lv_obj_set_pos(ui->screen_label_19, 426, 504);
 	lv_obj_set_size(ui->screen_label_19, 70, 30);
@@ -1118,6 +1121,7 @@ void setup_scr_screen(lv_ui *ui)
 	lv_label_set_long_mode(ui->screen_label_52, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_52, 850, 670);
 	lv_obj_set_size(ui->screen_label_52, 197, 35);
+	lv_obj_add_flag(ui->screen_label_52, LV_OBJ_FLAG_HIDDEN);
 
 	//Write style for screen_label_52, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_52, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1139,7 +1143,7 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_53 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_53, "Protocol: Basic");
 	lv_label_set_long_mode(ui->screen_label_53, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_53, 1024, 246);
+	lv_obj_set_pos(ui->screen_label_53, 1024, 284);
 	lv_obj_set_size(ui->screen_label_53, 246, 36);
 
 	//Write style for screen_label_53, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -1162,14 +1166,14 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_54 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_54, "Voltage: NA");
 	lv_label_set_long_mode(ui->screen_label_54, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_54, 1024, 282);
-	lv_obj_set_size(ui->screen_label_54, 245, 36);
+	lv_obj_set_pos(ui->screen_label_54, 986, 747);
+	lv_obj_set_size(ui->screen_label_54, 274, 36);
 
 	//Write style for screen_label_54, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_border_width(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_radius(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_color(ui->screen_label_54, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-	lv_obj_set_style_text_font(ui->screen_label_54, &lv_font_arial_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(ui->screen_label_54, &lv_font_arial_30, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_opa(ui->screen_label_54, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_letter_space(ui->screen_label_54, 2, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_text_line_space(ui->screen_label_54, 0, LV_PART_MAIN|LV_STATE_DEFAULT);

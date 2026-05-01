@@ -89,6 +89,14 @@ int unsubscribe_from_mqtt_topics(void);
 static bool parse_iso8601_to_local(const char *iso_time, char *output, size_t output_size);
 static void format_duration_seconds(int total_seconds, char *output, size_t output_size);
 
+
+// Battery level calculation prototypes (Feature 1)
+// Returns SOC percentage (0-100) or -1 if invalid
+static float calculate_battery_soc(float remaining_energy_wh);
+// Updates label_38, label_19, and screen_bar_2 with SOC value
+static void update_battery_display(float soc);
+
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -128,6 +136,23 @@ static bool session_end_processed = false;
 // Add these global variables at the top
 static time_t last_mqtt_message_time = 0;
 static const int MQTT_TIMEOUT_SECONDS = 2;  // Show overlay if no MQTT for 2+ seconds
+
+// ============================================
+// BATTERY LEVEL CALCULATION VARIABLES
+// ============================================
+// Battery capacity - configure based on your EV
+// Example: 555 Wh derived from user's test data (444 Wh = 80% remaining)
+static const float DEFAULT_BATTERY_CAPACITY_WH = 555.0f;
+static float battery_capacity_wh = 555.0f;  // Can be updated dynamically if needed
+
+// Current remaining energy from ev_info (updated on each MQTT message)
+static float initial_remaining_energy_wh = -1.0f;   // Captured at session start from ev_info
+static float current_remaining_energy_wh = -1.0f;   // Latest calculated value
+static bool initial_remaining_captured = false;      // Flag: initial value captured
+
+// Target SOC for charging (100% for now, can be made configurable later)
+static const float TARGET_SOC = 100.0f;
+
 
 static bool mqtt_connected = false;
 static lv_timer_t * mqtt_reconnect_timer = NULL;
@@ -857,6 +882,78 @@ static void format_duration_seconds(int total_seconds, char *output, size_t outp
     snprintf(output, output_size, "%02d:%02d:%02d", hours, minutes, seconds);
 }
 
+// ============================================
+// BATTERY SOC CALCULATION HELPER
+// ============================================
+/**
+ * Calculate current State of Charge (SOC) from remaining energy
+ * 
+ * Formula: SOC = 100 - (remaining_energy / capacity × 100)
+ * 
+ * @param remaining_energy_wh  Current remaining energy needed to reach 100% (Wh)
+ * @return Current SOC percentage (0-100), or -1 if cannot calculate
+ * 
+ * Examples with 555 Wh capacity:
+ *   remaining = 444 Wh → SOC = 100 - (444/555×100) = 20%
+ *   remaining = 312 Wh → SOC = 100 - (312/555×100) = 43.8%
+ *   remaining = 0 Wh   → SOC = 100%
+ */
+static float calculate_battery_soc(float remaining_energy_wh) {
+    // If remaining energy is 0 or negative, battery is full
+    if (remaining_energy_wh <= 0) {
+        return 100.0f;
+    }
+    
+    // If capacity is invalid, cannot compute SOC
+    if (battery_capacity_wh <= 0) {
+        printf("ERROR: Invalid battery capacity (%.2f Wh)\n", battery_capacity_wh);
+        return -1.0f;
+    }
+    
+    // SOC = 100 - (remaining / capacity × 100)
+    float soc = 100.0f - (remaining_energy_wh / battery_capacity_wh * 100.0f);
+    
+    // Clamp to valid range [0, 100]
+    if (soc < 0.0f) {
+        soc = 0.0f;
+    }
+    if (soc > 100.0f) {
+        soc = 100.0f;
+    }
+    
+    return soc;
+}
+
+/**
+ * Update battery level display on UI components
+ * Updates: label_38, label_19 (percentage text), screen_bar_2 (progress bar)
+ * 
+ * @param soc  State of Charge percentage (0-100)
+ */
+static void update_battery_display(float soc) {
+    // Skip if invalid SOC
+    if (soc < 0) {
+        return;
+    }
+    
+    // Format SOC as string with 1 decimal place
+    char soc_str[16];
+    snprintf(soc_str, sizeof(soc_str), "%.1f", soc);
+    
+    // Update battery level labels
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, soc_str);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, soc_str);
+    
+    // Update battery progress bar (integer value)
+    int soc_int = (int)soc;
+    lv_bar_set_value(guider_ui.screen_bar_2, soc_int, LV_ANIM_OFF);
+    
+    // Update global battery_level variable for other functions
+    battery_level = soc;
+}
+
+
+
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
 
     static unsigned long msg_count = 0;
@@ -971,6 +1068,13 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
           // Mark as processed immediately
           session_end_processed = true;
+
+          // ========== Reset battery calculation variable ==========
+          initial_remaining_energy_wh = -1.0f;
+          current_remaining_energy_wh = -1.0f;
+          initial_remaining_captured = false;
+          printf("Battery calculation variables reset for new session\n");
+          // =========================================================
           
           // Get current system time
           time_t rawtime;
@@ -1358,7 +1462,44 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("ev_info: evcc_id field not found in payload\n");
         }
 
-
+        // ========== Parse remaining_energy_needed for battery SOC ==========
+        // This value comes ONCE at session start - capture it as initial reference
+        char *remaining_field = strstr(payload_str, "\"remaining_energy_needed\":");
+        
+        if (remaining_field != NULL) {
+            remaining_field += 26;  // Skip past "remaining_energy_needed":
+            
+            // Skip whitespace
+            while (*remaining_field == ' ' || *remaining_field == '\t') {
+                remaining_field++;
+            }
+            
+            // Parse the float value
+            float remaining_energy = atof(remaining_field);
+            
+            // Only capture if we haven't captured yet AND value is valid
+            if (!initial_remaining_captured && remaining_energy > 0) {
+                initial_remaining_energy_wh = remaining_energy;
+                current_remaining_energy_wh = remaining_energy;
+                initial_remaining_captured = true;
+                
+                // Calculate initial SOC
+                float initial_soc = calculate_battery_soc(remaining_energy);
+                
+                printf("=== Initial Battery State Captured ===\n");
+                printf("Initial remaining energy: %.2f Wh\n", initial_remaining_energy_wh);
+                printf("Battery capacity: %.2f Wh\n", battery_capacity_wh);
+                printf("Initial SOC: %.1f%%\n", initial_soc);
+                printf("=======================================\n");
+                
+                // Display initial SOC
+                if (initial_soc >= 0) {
+                    update_battery_display(initial_soc);
+                }
+            }
+        } else {
+            printf("ev_info: remaining_energy_needed field not found\n");
+        }
     
     } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
         // Store MQTT battery level
@@ -1705,30 +1846,69 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             }
         }
 
-        // Parse charged_energy_wh → Feed into existing energy logic
+        // Parse charged_energy_wh → This comes FREQUENTLY during charging
         char *energy_field = strstr(payload_str, "\"charged_energy_wh\":");
         if (energy_field != NULL) {
             energy_field += 20;  // Skip past "charged_energy_wh":
             
+            // Skip whitespace and colon
             while (*energy_field == ' ' || *energy_field == '\t' || *energy_field == ':') {
                 energy_field++;
             }
             
-            int energy_wh = atoi(energy_field);
-            mqtt_energy_kwh = energy_wh / 1000.0f;  // Convert Wh to kWh
-            snprintf(final_energy, sizeof(final_energy), "%.3fkWh", mqtt_energy_kwh);
-            
-            // snprintf(final_energy, sizeof(final_energy), "%.3f", mqtt_energy_kwh);
-            if (is_mqtt_end_time_captured){
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+            // Safety check for valid numeric data
+            if (*energy_field != '\0' && (isdigit(*energy_field) || *energy_field == '-')) {
+                
+                int energy_wh = atoi(energy_field);
+                
+                // Validate energy value (0 to 100kWh max)
+                if (energy_wh < 0) energy_wh = 0;
+                if (energy_wh > 100000) energy_wh = 100000;
+                
+                // Update energy display (existing logic)
+                mqtt_energy_kwh = energy_wh / 1000.0f;
+                snprintf(final_energy, sizeof(final_energy), "%.3f kWh", mqtt_energy_kwh);
+                
+                if (is_mqtt_end_time_captured) {
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+                } else {
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
+                    UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
+                }
+
+                // ========== Calculate real-time battery SOC from charged energy ==========
+                // Formula: current_remaining = initial_remaining - charged_energy
+                // This works because:
+                //   - initial_remaining (from ev_info) = energy needed to reach 100%
+                //   - charged_energy (from session_info) = energy added so far
+                //   - current_remaining = what's still needed to reach 100%
+                
+                if (initial_remaining_captured && initial_remaining_energy_wh > 0) {
+                    
+                    // Calculate current remaining energy
+                    current_remaining_energy_wh = initial_remaining_energy_wh - (float)energy_wh;
+                    
+                    // Clamp to zero (can't be negative)
+                    if (current_remaining_energy_wh < 0) {
+                        current_remaining_energy_wh = 0;
+                    }
+                    
+                    // Calculate SOC from remaining energy
+                    float current_soc = calculate_battery_soc(current_remaining_energy_wh);
+                    
+                    if (current_soc >= 0) {
+                        update_battery_display(current_soc);
+                        
+                        // Debug log (uncomment if needed)
+                        // printf("SOC: initial=%.0f Wh, charged=%d Wh, remaining=%.0f Wh, SOC=%.1f%%\n",
+                        //        initial_remaining_energy_wh, energy_wh, 
+                        //        current_remaining_energy_wh, current_soc);
+                    }
+                }
+                // =========================================================================
             }
-            else{
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
-            }
-            
-            // printf("Charged energy (MQTT): %d Wh → %.3f kWh\n", energy_wh, final_energy);
         }
+
 
     } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
         char *payload_str = (char *)message->payload;
@@ -2121,94 +2301,78 @@ static void screen_slider_1_event_custom_handler (lv_event_t *e)
     printf("Message published: %s\n", publish_buffer);
 }
 void increase_battery_level(){
-  char battery_level_to_str[50];
-  char totalKWattHr_to_str[50];
-  int battery_level_to_int;
-  char power_str[20];
-  int power_int;
+    char battery_level_to_str[50];
+    int battery_level_to_int;
+    char power_str[20];
+    int power_int;
 
-  // Get current time
-  time_t current_time = time(NULL);
-  
-  // Only update if enough time has passed
-  if (difftime(current_time, last_update_time) < UPDATE_INTERVAL_SECONDS) {
-    return; // Skip this update
-  }
-  
-  // Update the last update time
-  last_update_time = current_time;
-
-
-  if (active_session && (battery_level < max_limit)){
-    set_paused = 1;
+    // Get current time
+    time_t current_time = time(NULL);
     
-    // Use MQTT data if available, otherwise simulate
-    if (mqtt_battery_level >= 0.0f) {
-        // Use MQTT battery level
-        battery_level = mqtt_battery_level;
+    // Only update if enough time has passed (1 second interval)
+    if (difftime(current_time, last_update_time) < UPDATE_INTERVAL_SECONDS) {
+        return;
+    }
+    
+    // Update the last update time
+    last_update_time = current_time;
+
+    // Check if charging is active and battery below limit
+    if (active_session && (battery_level < max_limit)) {
+        set_paused = 1;
+        
+        // ========== Battery level is now calculated from ev_info ==========
+        // The battery_level global is updated by update_battery_display()
+        // when ev_info MQTT message is received with remaining_energy_needed
+        // Here we just format the current value for display
+        
+        sprintf(battery_level_to_str, "%.1f", battery_level);
+        battery_level_to_int = (int)battery_level;
+        
+        // Update battery display (in case ev_info hasn't updated recently)
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, battery_level_to_str);
+        lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
+
+        // Update power meter display
+        if (mqtt_power_kw > 0) {
+            power_int = (int)mqtt_power_kw;
+            sprintf(power_str, "%.0f", mqtt_power_kw);
+        } else {
+            power_int = 0;
+            sprintf(power_str, "0");
+        }
+        lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, power_str);
+
+        // ========== Estimated remaining time (Feature 2 placeholder) ==========
+        // For now, keep simple calculation based on remaining percentage
+        // Feature 2 will replace this with proper energy-based calculation
+        float remaining_percent = TARGET_SOC - battery_level;
+        if (remaining_percent < 0) remaining_percent = 0;
+        
+        // Temporary: Estimate 10 seconds per percentage point
+        int remaining_time_in_seconds = (int)(remaining_percent * 10);
+        
+        char diff_time[20];
+        int hours = remaining_time_in_seconds / 3600;
+        int mins = (remaining_time_in_seconds % 3600) / 60;
+        int secs = remaining_time_in_seconds % 60;
+        snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", hours, mins, secs);
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, diff_time);
+        
     } else {
-        // Simulate battery increase (existing logic)
-        battery_level += 0.1;
+        // Battery reached limit or not charging - trigger pause
+        if (set_paused == 1) {
+            printf("Automatic pause triggered (battery limit reached)\n");
+            pause_charging();
+            lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
+            lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
+            set_paused = 0; 
+        }
     }
-    
-    totalKWattHr += 0.0050;
-    sprintf(battery_level_to_str, "%.1f", battery_level);
-    
-    // Use real MQTT energy data if available, otherwise use simulated
-    if (mqtt_energy_kwh > 0) {
-        sprintf(totalKWattHr_to_str, "%.3f kWh", mqtt_energy_kwh);
-    } else {
-        sprintf(totalKWattHr_to_str, "%.3f kWh", totalKWattHr);
-    }
-     
-    
-    // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
-    // lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
-    
-    battery_level_to_int = (int)battery_level;
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, battery_level_to_str);
-    
-    lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
-
-      // Use real MQTT power data if available, otherwise use simulated
-      if (mqtt_power_kw > 0) {
-          power_int = (int)mqtt_power_kw;
-          sprintf(power_str, "%.0f", mqtt_power_kw);
-      } else {
-          power_int = 8;
-          sprintf(power_str, "8");
-      }
- 
-      lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
-      UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, power_str);
-
-    //add estimated end time
-    float remaining_charge;
-    remaining_charge = max_limit - battery_level;
-    int remaining_time_in_seconds;
-    remaining_time_in_seconds = remaining_charge * 10;
-    char diff_time[20];
-    diffTime = secondsToTime(remaining_time_in_seconds);
-    snprintf(diff_time, sizeof(diff_time), "00:%02d:%02d", diffTime.minutes, diffTime.seconds);
-    UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, diff_time);
-    //add estimated end time
-  }else{
-
-    if (set_paused == 1){
-      printf("Automatic pause triggered (battery limit reached)\n");
-      pause_charging();  // This will now capture pause time inside the function
-      printf("\nready to pause: elseIf\n");
-      lv_obj_clear_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-      UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
-      // Add dial data
-        lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
-      // Add dial data
-      set_paused = 0; 
-    }
-  }
-
 }
 
 static void screen_slider_2_event_custom_handler (lv_event_t *e)
