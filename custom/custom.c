@@ -90,11 +90,15 @@ static bool parse_iso8601_to_local(const char *iso_time, char *output, size_t ou
 static void format_duration_seconds(int total_seconds, char *output, size_t output_size);
 
 
-// Battery level calculation prototypes (Feature 1)
+// Battery level calculation prototypes
 // Returns SOC percentage (0-100) or -1 if invalid
 static float calculate_battery_soc(float remaining_energy_wh);
 // Updates label_38, label_19, and screen_bar_2 with SOC value
 static void update_battery_display(float soc);
+
+
+// Estimated time calculation prototype (Feature 2)
+static void update_estimated_remaining_time(float remaining_energy_wh, float rate_wh_per_sec);
 
 
 /**********************
@@ -119,7 +123,7 @@ char seconds[10];
 char am_pm[10];
 bool is_new_session=false;
 bool is_session_started=false;
-float battery_level = 20.0f;
+float battery_level = 00.0f;
 bool active_session=false;
 int max_limit=100;
 float totalKWattHr = 0.000f;
@@ -153,6 +157,19 @@ static bool initial_remaining_captured = false;      // Flag: initial value capt
 // Target SOC for charging (100% for now, can be made configurable later)
 static const float TARGET_SOC = 100.0f;
 
+// Flag to stop updates when battery reaches 100%
+static bool charging_complete = false;
+
+// ============================================
+// ESTIMATED TIME CALCULATION VARIABLE
+// ============================================
+// Charging rate tracking - calculated from session_info
+static float charging_rate_wh_per_sec = 0.0f;
+
+// EMA smoothing for stable ETA display
+static float smoothed_charging_rate = 0.0f;
+static const float EMA_ALPHA = 0.2f;  // Smoothing factor (0.2 = balanced)
+
 
 static bool mqtt_connected = false;
 static lv_timer_t * mqtt_reconnect_timer = NULL;
@@ -172,7 +189,7 @@ static char label_energy_buffer_mqtt[32];
 static char label_energy_buffer_mqtt_summary[32];
 static char label_temp_buffer[16] = "0";
 static char label_power_buffer[16] = "0";
-static char label_battery_buffer[16] = "20.0";
+static char label_battery_buffer[16] = "00.0";
 static char label_time_buffer[32] = "--:--:--";
 static char label_start_time_main[32];    // for label_10
 static char label_start_time_summary[32]; // for label_29
@@ -952,7 +969,104 @@ static void update_battery_display(float soc) {
     battery_level = soc;
 }
 
-
+// ============================================
+// ESTIMATED REMAINING TIME HELPER (Feature 2)
+// ============================================
+/**
+ * Calculate and update estimated remaining charging time
+ * 
+ * Formula: remaining_time = remaining_energy / charging_rate
+ * 
+ * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
+ * @param rate_wh_per_sec      Current charging rate (Wh per second)
+ * 
+ * Updates: label_11 (estimated time remaining display)
+ * 
+ * Examples:
+ *   remaining=400 Wh, rate=0.5 Wh/s → 800 sec → 00:13:20
+ *   remaining=200 Wh, rate=1.0 Wh/s → 200 sec → 00:03:20
+ *   remaining=0 Wh                  → 00:00:00 (fully charged)
+ */
+// ============================================
+// ESTIMATED REMAINING TIME HELPER (Feature 2)
+// ============================================
+/**
+ * Calculate and update estimated remaining charging time
+ * Uses Exponential Moving Average (EMA) to smooth rate fluctuations
+ * 
+ * Formula: smoothed_rate = alpha × current + (1-alpha) × previous
+ * 
+ * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
+ * @param current_rate         Current instantaneous charging rate (Wh/s)
+ * 
+ * Updates: label_11 (estimated time remaining display)
+ */
+// ============================================
+// ESTIMATED REMAINING TIME HELPER (Feature 2)
+// ============================================
+/**
+ * Calculate and update estimated remaining charging time
+ * Uses Exponential Moving Average (EMA) to smooth rate fluctuations
+ * Rate limited to update display only once per second
+ * 
+ * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
+ * @param current_rate         Current instantaneous charging rate (Wh/s)
+ * 
+ * Updates: label_11 (estimated time remaining display)
+ */
+static void update_estimated_remaining_time(float remaining_energy_wh, float current_rate) {
+    static time_t last_eta_update_time = 0;
+    char time_str[20];
+    
+    // Case 1: Fully charged
+    if (remaining_energy_wh <= 0) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "00:00:00");
+        smoothed_charging_rate = 0.0f;
+        return;
+    }
+    
+    // Case 2: Invalid rate (not charging or paused)
+    if (current_rate <= 0.001f) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
+        return;
+    }
+    
+    // Apply Exponential Moving Average (EMA) for smoothing
+    // This runs every call to keep the rate accurate
+    if (smoothed_charging_rate <= 0.001f) {
+        smoothed_charging_rate = current_rate;
+    } else {
+        smoothed_charging_rate = (EMA_ALPHA * current_rate) + 
+                                 ((1.0f - EMA_ALPHA) * smoothed_charging_rate);
+    }
+    
+    // ========== Rate limit display updates to once per second ==========
+    time_t now = time(NULL);
+    if (last_eta_update_time > 0 && difftime(now, last_eta_update_time) < 1.0) {
+        return;  // Skip display update, not yet 1 second
+    }
+    last_eta_update_time = now;
+    // ====================================================================
+    
+    // Calculate remaining time using smoothed rate
+    float remaining_seconds_f = remaining_energy_wh / smoothed_charging_rate;
+    
+    // Cap at 99:59:59 to prevent display overflow
+    if (remaining_seconds_f > 359999.0f) {
+        remaining_seconds_f = 359999.0f;
+    }
+    
+    int remaining_seconds = (int)remaining_seconds_f;
+    
+    // Convert to hours, minutes, seconds
+    int hours = remaining_seconds / 3600;
+    int minutes = (remaining_seconds % 3600) / 60;
+    int seconds = remaining_seconds % 60;
+    
+    // Format as HH:MM:SS
+    snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", hours, minutes, seconds);
+    UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, time_str);
+}
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
 
@@ -1073,7 +1187,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           initial_remaining_energy_wh = -1.0f;
           current_remaining_energy_wh = -1.0f;
           initial_remaining_captured = false;
-          printf("Battery calculation variables reset for new session\n");
+          charging_rate_wh_per_sec = 0.0f;
+          smoothed_charging_rate = 0.0f;
+          charging_complete = false;  // Reset for new session
+          printf("Battery and ETA calculation variables reset for new session\n");
           // =========================================================
           
           // Get current system time
@@ -1145,12 +1262,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            battery_level = 20.0;
+            battery_level = 00.0;
             totalKWattHr = 0.000;
             mqtt_power_kw = 0.0f;
             mqtt_energy_kwh = 0.0f;
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, "20.0");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, "20.0");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, "00.0");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, "00.0");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, "0.000 kWh");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
             lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
@@ -1829,85 +1946,94 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             }
         }
 
-        // Parse transaction_duration_s (already working!)
-        char *duration_field = strstr(payload_str, "\"transaction_duration_s\":");
-        if (duration_field != NULL) {
-            duration_field += 25;
-            while (*duration_field == ' ' || *duration_field == '\t' || *duration_field == ':') {
-                duration_field++;
-            }
-            
-            int duration_seconds = atoi(duration_field);
-            if (duration_seconds >= 0) {
-                char duration_str[32];
-                format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
-                // printf("Session duration (MQTT): %d seconds → %s\n", duration_seconds, duration_str);
-            }
-        }
-
-        // Parse charged_energy_wh → This comes FREQUENTLY during charging
+        // Parse charged_energy_wh and transaction_duration_s for SOC and ETA
         char *energy_field = strstr(payload_str, "\"charged_energy_wh\":");
+        char *duration_field_ptr = strstr(payload_str, "\"transaction_duration_s\":");
+        
+        int energy_wh = 0;
+        int duration_seconds = 0;
+        bool has_energy = false;
+        bool has_duration = false;
+        
+        // ========== Parse charged_energy_wh ==========
         if (energy_field != NULL) {
             energy_field += 20;  // Skip past "charged_energy_wh":
             
-            // Skip whitespace and colon
             while (*energy_field == ' ' || *energy_field == '\t' || *energy_field == ':') {
                 energy_field++;
             }
             
-            // Safety check for valid numeric data
-            if (*energy_field != '\0' && (isdigit(*energy_field) || *energy_field == '-')) {
-                
-                int energy_wh = atoi(energy_field);
-                
-                // Validate energy value (0 to 100kWh max)
+            if (*energy_field != '\0' && (isdigit((unsigned char)*energy_field) || *energy_field == '-')) {
+                energy_wh = atoi(energy_field);
                 if (energy_wh < 0) energy_wh = 0;
                 if (energy_wh > 100000) energy_wh = 100000;
+                has_energy = true;
                 
-                // Update energy display (existing logic)
-                mqtt_energy_kwh = energy_wh / 1000.0f;
-                snprintf(final_energy, sizeof(final_energy), "%.3f kWh", mqtt_energy_kwh);
-                
-                if (is_mqtt_end_time_captured) {
-                    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
-                } else {
-                    UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
-                    UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
-                }
-
-                // ========== Calculate real-time battery SOC from charged energy ==========
-                // Formula: current_remaining = initial_remaining - charged_energy
-                // This works because:
-                //   - initial_remaining (from ev_info) = energy needed to reach 100%
-                //   - charged_energy (from session_info) = energy added so far
-                //   - current_remaining = what's still needed to reach 100%
-                
-                if (initial_remaining_captured && initial_remaining_energy_wh > 0) {
+                // Only update energy display if charging is not complete
+                if (!charging_complete) {
+                    mqtt_energy_kwh = energy_wh / 1000.0f;
+                    snprintf(final_energy, sizeof(final_energy), "%.3f kWh", mqtt_energy_kwh);
                     
-                    // Calculate current remaining energy
-                    current_remaining_energy_wh = initial_remaining_energy_wh - (float)energy_wh;
-                    
-                    // Clamp to zero (can't be negative)
-                    if (current_remaining_energy_wh < 0) {
-                        current_remaining_energy_wh = 0;
-                    }
-                    
-                    // Calculate SOC from remaining energy
-                    float current_soc = calculate_battery_soc(current_remaining_energy_wh);
-                    
-                    if (current_soc >= 0) {
-                        update_battery_display(current_soc);
-                        
-                        // Debug log (uncomment if needed)
-                        // printf("SOC: initial=%.0f Wh, charged=%d Wh, remaining=%.0f Wh, SOC=%.1f%%\n",
-                        //        initial_remaining_energy_wh, energy_wh, 
-                        //        current_remaining_energy_wh, current_soc);
+                    if (is_mqtt_end_time_captured) {
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+                    } else {
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
                     }
                 }
-                // =========================================================================
             }
         }
+
+        
+        // ========== Parse transaction_duration_s ==========
+        if (duration_field_ptr != NULL) {
+            duration_field_ptr += 25;  // Skip past "transaction_duration_s":
+            
+            while (*duration_field_ptr == ' ' || *duration_field_ptr == '\t' || *duration_field_ptr == ':') {
+                duration_field_ptr++;
+            }
+            
+            if (*duration_field_ptr != '\0' && (isdigit((unsigned char)*duration_field_ptr) || *duration_field_ptr == '-')) {
+                duration_seconds = atoi(duration_field_ptr);
+                if (duration_seconds < 0) duration_seconds = 0;
+                has_duration = true;
+                
+                // Update duration display for summary screen
+                char duration_str[32];
+                format_duration_seconds(duration_seconds, duration_str, sizeof(duration_str));
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer_mqtt, duration_str);
+            }
+        }
+        
+        // ========== Calculate Battery SOC ==========
+        if (has_energy && initial_remaining_captured && initial_remaining_energy_wh > 0) {
+            current_remaining_energy_wh = initial_remaining_energy_wh - (float)energy_wh;
+            if (current_remaining_energy_wh < 0) {
+                current_remaining_energy_wh = 0;
+            }
+            
+            float current_soc = calculate_battery_soc(current_remaining_energy_wh);
+            if (current_soc >= 0) {
+                update_battery_display(current_soc);
+                
+                // Set flag when battery reaches 100%
+                if (current_soc >= 100.0f) {
+                    charging_complete = true;
+                    printf("Battery fully charged - stopping energy updates\n");
+                }
+            }
+        }
+        
+        // ========== Calculate Estimated Remaining Time ==========
+        if (has_energy && has_duration && duration_seconds > 0 && initial_remaining_captured) {
+            // Calculate instantaneous charging rate
+            charging_rate_wh_per_sec = (float)energy_wh / (float)duration_seconds;
+            
+            // Update ETA with smoothed rate
+            update_estimated_remaining_time(current_remaining_energy_wh, charging_rate_wh_per_sec);
+        }
+
+
 
 
     } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
@@ -2321,15 +2447,10 @@ void increase_battery_level(){
     if (active_session && (battery_level < max_limit)) {
         set_paused = 1;
         
-        // ========== Battery level is now calculated from ev_info ==========
-        // The battery_level global is updated by update_battery_display()
-        // when ev_info MQTT message is received with remaining_energy_needed
-        // Here we just format the current value for display
-        
+        // Format current battery value for display
         sprintf(battery_level_to_str, "%.1f", battery_level);
         battery_level_to_int = (int)battery_level;
         
-        // Update battery display (in case ev_info hasn't updated recently)
         UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, battery_level_to_str);
         UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, battery_level_to_str);
         lv_bar_set_value(guider_ui.screen_bar_2, battery_level_to_int, LV_ANIM_OFF);
@@ -2344,22 +2465,8 @@ void increase_battery_level(){
         }
         lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, power_int);
         UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, power_str);
-
-        // ========== Estimated remaining time (Feature 2 placeholder) ==========
-        // For now, keep simple calculation based on remaining percentage
-        // Feature 2 will replace this with proper energy-based calculation
-        float remaining_percent = TARGET_SOC - battery_level;
-        if (remaining_percent < 0) remaining_percent = 0;
         
-        // Temporary: Estimate 10 seconds per percentage point
-        int remaining_time_in_seconds = (int)(remaining_percent * 10);
-        
-        char diff_time[20];
-        int hours = remaining_time_in_seconds / 3600;
-        int mins = (remaining_time_in_seconds % 3600) / 60;
-        int secs = remaining_time_in_seconds % 60;
-        snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", hours, mins, secs);
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, diff_time);
+        // NOTE: ETA is calculated in session_info handler (Feature 2)
         
     } else {
         // Battery reached limit or not charging - trigger pause
