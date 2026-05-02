@@ -1174,6 +1174,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
               lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
@@ -1218,6 +1219,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
           lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
           char string_time_out[20];
           char diff_time[20];
@@ -1277,6 +1279,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
 
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
@@ -1323,6 +1326,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           active_session = true;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_plugged_alpha_1280x800);
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
           
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
           // ADD THIS ENTIRE BLOCK
@@ -1775,43 +1779,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
 
     } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
-        char direction_display[32];
-        
-        if (message->payloadlen > 0 && message->payload != NULL) {
-            char *direction = (char *)message->payload;
-            
-            // Check for G2V (Grid to Vehicle - Charging)
-            if (strcasecmp(direction, "G2V") == 0 ||
-                strcasecmp(direction, "Grid2Vehicle") == 0 ||
-                strcasecmp(direction, "GridToVehicle") == 0 ||
-                strcasecmp(direction, "Grid to Vehicle") == 0 ||
-                strstr(direction, "G2V") != NULL ||
-                strstr(direction, "g2v") != NULL) {
-                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
-                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
-                printf("ISO 15118 Direction: G2V (Grid to Vehicle - Charging)\n");
-            }
-            // Check for V2G (Vehicle to Grid - Discharging)
-            else if (strcasecmp(direction, "V2G") == 0 ||
-                        strcasecmp(direction, "Vehicle2Grid") == 0 ||
-                        strcasecmp(direction, "VehicleToGrid") == 0 ||
-                        strcasecmp(direction, "Vehicle to Grid") == 0 ||
-                        strstr(direction, "V2G") != NULL ||
-                        strstr(direction, "v2g") != NULL) {
-                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
-                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
-                printf("ISO 15118 Direction: V2G (Vehicle to Grid - Discharging)\n");
-            }
-            // Unknown or invalid direction
-            else {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-                printf("ISO 15118 Direction: Unknown (%s)\n", direction);
-            }
-        } else {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-            printf("ISO 15118 Direction: NA (empty payload)\n");
-        }
-    
+        printf("Demo topic for V2G direction\n");
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
         char connection_display[32];
             // Validate payload
@@ -1981,6 +1949,41 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                         UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
                     }
                 }
+            }
+        }
+        
+        // ========== Parse discharged_energy_wh for direction detection ==========
+        char *discharged_field = strstr(payload_str, "\"discharged_energy_wh\":");
+        int discharged_wh = 0;
+        
+        if (discharged_field != NULL) {
+            discharged_field += 23;  // Skip past "discharged_energy_wh":
+            
+            while (*discharged_field == ' ' || *discharged_field == '\t' || *discharged_field == ':') {
+                discharged_field++;
+            }
+            
+            if (*discharged_field != '\0' && (isdigit((unsigned char)*discharged_field) || *discharged_field == '-')) {
+                discharged_wh = atoi(discharged_field);
+                if (discharged_wh < 0) discharged_wh = 0;
+            }
+        }
+        
+        // ========== Determine charging direction (G2V vs V2G) ==========
+        // ONLY update direction during active session - prevents overwriting "NA" after session ends
+        if (!session_end_processed && (has_energy || discharged_wh > 0)) {
+            if (energy_wh > discharged_wh) {
+                // More energy charged than discharged = Grid to Vehicle
+                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
+                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
+            } else if (discharged_wh > energy_wh) {
+                // More energy discharged than charged = Vehicle to Grid
+                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
+                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
+            } else if (energy_wh == 0 && discharged_wh == 0) {
+                // No energy flow yet
+                snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: NA");
+                lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
             }
         }
 
