@@ -48,6 +48,13 @@
 #define QOS         1 
 #define TIMEOUT     10000L 
 
+// ============================================
+// EVEREST DIRECT API TOPICS (No Node-RED dependency)
+// ============================================
+#define EVSE_MODULE_ID          "evse_manager_1"
+#define EVSE_PAUSE_TOPIC        "everest_api/evse_manager_1/cmd/pause_charging"
+#define EVSE_RESUME_TOPIC       "everest_api/evse_manager_1/cmd/resume_charging"
+
 /**********************
  *  MQTT TOPICS ARRAY
  *********************/
@@ -2357,7 +2364,16 @@ void unplug(){
 //   printf("Message published: %s\n", "pause_charging"); 
 //   active_session = false;
 // }
- void pause_charging(){
+ 
+/**
+ * Pause charging session using direct EVerest API
+ * Topic: everest_api/evse_manager_1/cmd/pause_charging
+ * Payload: empty string
+ * 
+ * Works for: IEC 61851-1 (Basic Charging)
+ * Note: ISO 15118 uses HLC and may require different handling
+ */
+void pause_charging(){
   printf("\n========================================\n");
   printf("=== PAUSE_CHARGING CALLED ===\n");
   printf("========================================\n");
@@ -2393,25 +2409,50 @@ void unplug(){
   printf("  pause_time_captured = %d\n", pause_time_captured);
   printf("========================================\n\n");
   
-  pubmsg.payload = "pause_charging"; 
-  pubmsg.payloadlen = (int)strlen("pause_charging"); 
-  pubmsg.qos = QOS; 
-  pubmsg.retained = 0;
-  
-  MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/pause_charging", &pubmsg, NULL); 
-  printf("Message published: %s\n", "pause_charging"); 
-  active_session = false;
+  // ============================================
+    // DIRECT EVEREST API (No Node-RED dependency)
+    // ============================================
+    pubmsg.payload = "";  // Empty payload for direct API
+    pubmsg.payloadlen = 0;
+    pubmsg.qos = QOS; 
+    pubmsg.retained = 0;
+    
+    MQTTClient_publishMessage(client, EVSE_PAUSE_TOPIC, &pubmsg, NULL); 
+    printf("Pause command sent to: %s\n", EVSE_PAUSE_TOPIC);
+    
+    active_session = false;
 }
 
+/**
+ * Resume charging session using direct EVerest API
+ * Topic: everest_api/evse_manager_1/cmd/resume_charging
+ * Payload: empty string
+ * 
+ * Works for: IEC 61851-1 (Basic Charging)
+ * Note: ISO 15118 uses HLC and may require different handling
+ */
 void resume_charging(){
-  pubmsg.payload = "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;pause_charging"; 
-  pubmsg.payloadlen = (int)strlen("sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;pause_charging"); 
-  pubmsg.qos = QOS; 
-  pubmsg.retained = 0;
-  
-  MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/resume_charging", &pubmsg, NULL); 
-  printf("Message published: %s\n", "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;pause_charging"); 
+    printf("\n========================================\n");
+    printf("=== RESUME_CHARGING CALLED ===\n");
+    printf("========================================\n");
+    
+    // ============================================
+    // DIRECT EVEREST API (No Node-RED dependency)
+    // ============================================
+    pubmsg.payload = "";  // Empty payload for direct API
+    pubmsg.payloadlen = 0;
+    pubmsg.qos = QOS; 
+    pubmsg.retained = 0;
+    
+    MQTTClient_publishMessage(client, EVSE_RESUME_TOPIC, &pubmsg, NULL); 
+    printf("Resume command sent to: %s\n", EVSE_RESUME_TOPIC);
+    
+    // Reset pause time captured flag on resume
+    pause_time_captured = false;
+    
+    printf("========================================\n\n");
 }
+
 
 static void screen_slider_1_event_custom_handler (lv_event_t *e)
 {
