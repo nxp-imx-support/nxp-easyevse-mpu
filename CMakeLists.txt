@@ -15,14 +15,8 @@ pkg_check_modules(
         xkbcommon
 )
 
-find_path(PAHO_INCLUDE_DIR
-    NAMES MQTTClient.h
-    PATH_SUFFIXES paho-mqtt
-)
-
-find_library(PAHO_MQTT_LIB
-    NAMES paho-mqtt3c
-)
+find_path(PAHO_INCLUDE_DIR NAMES MQTTClient.h)
+find_library(PAHO_MQTT_LIB NAMES paho-mqtt3c)
 
 if(NOT PAHO_INCLUDE_DIR OR NOT PAHO_MQTT_LIB)
     message(FATAL_ERROR
