@@ -557,6 +557,21 @@ static void mqtt_reconnect_timer_cb(lv_timer_t * timer)
     }
 }
 
+// Add this timer callback
+static void internet_check_timer_cb(lv_timer_t *timer) {
+    int result = system("ping -c 1 8.8.8.8 -W 1 2>/dev/null 1>/dev/null");
+    
+    if (result == 0) {
+        lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 
 void custom_init(lv_ui *ui)
 {
@@ -565,6 +580,7 @@ void custom_init(lv_ui *ui)
   set_screen_digital_clock_1();
 
   lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 1000, NULL);
+  lv_timer_t *internet_timer = lv_timer_create(internet_check_timer_cb, 30000, NULL);
 
   // Show cont_4 overlay by default (waiting for EVerest/MQTT)
   lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
@@ -1164,9 +1180,122 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         //#########################################################################################
 
     //    UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, (char *)message->payload);
-       UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, event_value);
-       lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-       lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, event_value);
+        // lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+        // lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+        
+            // ============================================
+            // CENTRALIZED STATE MAPPING
+            // ============================================
+            printf(">>> ENTERING STATE MAPPING for event: '%s' <<<\n", event_value);
+            
+            const char *display_state = NULL;
+            uint32_t state_color = 0xdcd1e5;  // Default gray
+            bool state_handled = false;
+            
+            // Map event names to display states
+            if (strcmp(event_value, "ChargingStarted") == 0) {
+                display_state = "Charging";
+                state_color = 0xd0ff00;  // Green/Yellow
+                state_handled = true;
+                
+            } else if (strcmp(event_value, "ChargingResumed") == 0) {
+                display_state = "Charging";
+                state_color = 0xd0ff00;  // Green/Yellow
+                state_handled = true;
+                
+            } else if (strcmp(event_value, "StoppingCharging") == 0) {
+                display_state = "StoppingCharging";
+                state_color = 0xFFFF00;  // Yellow
+                state_handled = true;
+                active_session = false;
+                printf(">>> MATCHED: StoppingCharging - setting active_session=false <<<\n");
+                
+            } else if (strcmp(event_value, "ChargingPausedEV") == 0 || 
+                       strcmp(event_value, "ChargingPausedEVSE") == 0 ||
+                       strcmp(event_value, "EVSE Paused") == 0 ||
+                       strcmp(event_value, "Paused") == 0) {
+                display_state = event_value;  // Keep original
+                state_color = 0xFFA500;  // Orange
+                state_handled = true;
+                active_session = false;
+                printf(">>> MATCHED: Pause event - setting active_session=false <<<\n");
+                
+            } else if (strcmp(event_value, "ChargingFinished") == 0) {
+                display_state = event_value;  // Keep original
+                state_color = 0x00FF00;  // Green
+                state_handled = true;
+                active_session = false;
+                
+            } else if (strcmp(event_value, "TransactionFinished") == 0) {
+                display_state = "TransactionFinished";
+                state_color = 0xdcd1e5;  // Gray
+                state_handled = true;
+                active_session = false;
+                
+            } else if (strcmp(event_value, "SessionFinished") == 0) {
+                display_state = "SessionFinished";
+                state_color = 0xdcd1e5;  // Gray
+                state_handled = true;
+                active_session = false;
+                
+            } else if (strcmp(event_value, "Enabled") == 0) {
+                display_state = "Unplugged";
+                state_color = 0xdcd1e5;  // Gray
+                state_handled = true;
+                active_session = false;
+                
+            } else if (strcmp(event_value, "TransactionStarted") == 0) {
+                display_state = "TransactionStarted";
+                state_color = 0x00BFFF;  // Light blue
+                state_handled = true;
+                printf(">>> MATCHED: TransactionStarted <<<\n");
+                
+            } else if (strcmp(event_value, "PrepareCharging") == 0) {
+                display_state = "PrepareCharging";
+                state_color = 0xFFFF00;  // Yellow - preparing
+                state_handled = true;
+                printf(">>> MATCHED: PrepareCharging <<<\n");
+                
+            } else if (strcmp(event_value, "SessionStarted") == 0) {
+                display_state = "SessionStarted";
+                state_color = 0xdcd1e5;  // Gray
+                state_handled = true;
+                
+            } else if (strcmp(event_value, "AuthRequired") == 0) {
+                display_state = "AuthRequired";
+                state_color = 0x00BFFF;  // Light blue
+                state_handled = true;
+                
+            } else if (strcmp(event_value, "Authorized") == 0) {
+                display_state = "Authorized";
+                state_color = 0x00FF00;  // Green
+                state_handled = true;
+                
+            } else {
+                // All other events - show original event value as-is
+                display_state = event_value;
+                state_color = 0xdcd1e5;  // Default gray
+                state_handled = true;
+                printf(">>> UNMATCHED EVENT - using default: '%s' <<<\n", event_value);
+            }
+            
+            // ============================================
+            // SINGLE LABEL UPDATE POINT
+            // ============================================
+            if (display_state != NULL) {
+                printf(">>> UPDATING LABEL: '%s' -> '%s' (color: 0x%06X) <<<\n", 
+                       label_state_buffer, display_state, state_color);
+                
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, display_state);
+                lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(state_color), LV_PART_MAIN|LV_STATE_DEFAULT);
+                lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+                lv_obj_invalidate(guider_ui.screen_label_1);  // Force redraw
+                
+                printf(">>> LABEL UPDATED SUCCESSFULLY <<<\n");
+            }
+
+
       if (
           strcmp(event_value, "TransactionFinished") == 0 ||
           strcmp(event_value, "SessionFinished") == 0 ||
@@ -1296,47 +1425,51 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
       }
       // Capture pause time (handles both manual and automatic pause)
-      if (strcmp(event_value, "EVSE Paused") == 0) {
+      // Capture pause time (handles both manual and automatic pause)
+      if (strcmp(event_value, "EVSE Paused") == 0 ||
+          strcmp(event_value, "ChargingPausedEV") == 0 ||
+          strcmp(event_value, "ChargingPausedEVSE") == 0) {
           set_screen_digital_clock_1();
           pauseTime.hours = atoi(hour);
           pauseTime.minutes = atoi(minutes);
           pauseTime.seconds = atoi(seconds);
           pauseTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
           pause_time_captured = true;
+          // REMOVED: Label update - now handled in centralized state mapping above
       }
+
 
       // Existing grouped condition (keep as is)
       if (
           strcmp(event_value, "SessionStarted") == 0 ||
-          strcmp(event_value, "AuthRequired") == 0 ||
-          strcmp(event_value, "ChargingFinished") == 0
+          strcmp(event_value, "AuthRequired") == 0 
+        //   ||
+        //   strcmp(event_value, "ChargingFinished") == 0
           // strcmp((char *)message->payload, "PrepareCharging") == 0
       ) {
           active_session = false;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_alpha_1280x800);
-          lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+        //   lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
       }
 
       if (
           strcmp(event_value, "AuthRequired") == 0
       ) {
           active_session = false;
-          lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Plugged in");
-          sleep(1);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "AuthRequired");
+        //   lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+        //   UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Plugged in");
+        // //   sleep(1);
+        //   UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "AuthRequired");
           is_new_session = true;	
       }
-      if (
-          strcmp(event_value, "ChargingStarted") == 0
-      ) {
+      
+      if (strcmp(event_value, "ChargingStarted") == 0) {
           active_session = true;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_plugged_alpha_1280x800);
-          lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xd0ff00), LV_PART_MAIN|LV_STATE_DEFAULT);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Charging");
+          // REMOVED: Duplicate label update - now handled in centralized state mapping above
           
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-          // ADD THIS ENTIRE BLOCK
+          
           if (!start_time_captured && is_session_started) {
               char string_time[20];
               set_screen_digital_clock_1();
@@ -1349,21 +1482,19 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
               
               UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, string_time);
-            //   UPDATE_LABEL_SAFE(guider_ui.screen_label_29, label_time_buffer, string_time);
-              
               start_time_captured = true;
-            //   printf("Start time captured at Charging state: %s\n", string_time);
           }
-      }      
+      }
+
       if ((strcmp(event_value,"Authorized") == 0) && (is_new_session)){
-        lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+        // lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
         // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Authenticating...");
         char string_time[20];
         set_screen_digital_clock_1();
         is_session_started = true;
         active_session = false;
         session_end_processed = false;  // ADD THIS LINE - Reset for new session
-        sleep(2);
+        // sleep(2);
 
         // lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
         // lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
@@ -1375,39 +1506,39 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
       }
 
-      if (strcmp((char *)message->payload,"Idle") == 0){
-        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
-        // char string_time_out[20];
-        // char diff_time[20];
+    //   if (strcmp((char *)message->payload,"Idle") == 0){
+    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
+    //     // char string_time_out[20];
+    //     // char diff_time[20];
 
-        // set_screen_digital_clock_1();
-        // endTime.hours = atoi(hour);
-        // endTime.minutes = atoi(minutes);
-        // endTime.seconds = atoi(seconds); 
-        // endTime.ampm = strcmp(am_pm,"AM") ? 'A' : 'p';
+    //     // set_screen_digital_clock_1();
+    //     // endTime.hours = atoi(hour);
+    //     // endTime.minutes = atoi(minutes);
+    //     // endTime.seconds = atoi(seconds); 
+    //     // endTime.ampm = strcmp(am_pm,"AM") ? 'A' : 'p';
 
-        // startTimeInSeconds = timeToSeconds(startTime);
-        // endTimeInSeconds = timeToSeconds(endTime);
+    //     // startTimeInSeconds = timeToSeconds(startTime);
+    //     // endTimeInSeconds = timeToSeconds(endTime);
 
-        // diffInSeconds = endTimeInSeconds - startTimeInSeconds;
-        // if (diffInSeconds < 0){
-        //   diffInSeconds +=86400;
-        // }
-        // diffTime = secondsToTime(diffInSeconds);
+    //     // diffInSeconds = endTimeInSeconds - startTimeInSeconds;
+    //     // if (diffInSeconds < 0){
+    //     //   diffInSeconds +=86400;
+    //     // }
+    //     // diffTime = secondsToTime(diffInSeconds);
 
-        // if (diffTime.hours == 12){
-        //   diffTime.hours = 00;
-        // }
+    //     // if (diffTime.hours == 12){
+    //     //   diffTime.hours = 00;
+    //     // }
         
-        // snprintf(string_time_out, sizeof(string_time_out), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
-        // snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", diffTime.hours, diffTime.minutes, diffTime.seconds);
-        // UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
-        // UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
-        // if (is_session_started){
-        //   lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
-        //   is_session_started = false;
-        // }
-      }
+    //     // snprintf(string_time_out, sizeof(string_time_out), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
+    //     // snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", diffTime.hours, diffTime.minutes, diffTime.seconds);
+    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
+    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
+    //     // if (is_session_started){
+    //     //   lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+    //     //   is_session_started = false;
+    //     // }
+    //   }
       
     } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
     printf("depricated_block");
@@ -1422,27 +1553,27 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
       //move to increare_batery_level UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
 
-       int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
-      //move to increare_batery_level 
-      //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
-    //   mqtt_power_kw = atof((char *)message->payload);
-    //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
+    //    int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
+    //   //move to increare_batery_level 
+    //   //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
+    // //   mqtt_power_kw = atof((char *)message->payload);
+    // //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
 
-      // Network connectivity check and icon update
-      if (result == 0) {
-        //   printf("Internet connection is available.\n");
-          lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-          // lv_obj_add_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_clear_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
+    //   // Network connectivity check and icon update
+    //   if (result == 0) {
+    //     //   printf("Internet connection is available.\n");
+    //       lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
+    //       // lv_obj_add_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
+    //       lv_obj_clear_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
+    //       lv_obj_add_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
         
-      } else {
-          lv_obj_clear_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-          // lv_obj_clear_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
-        //   printf("Internet connection is not available.\n");
-      } 
+    //   } else {
+    //       lv_obj_clear_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
+    //       // lv_obj_clear_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
+    //       lv_obj_add_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
+    //       lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
+    //     //   printf("Internet connection is not available.\n");
+    //   } 
     increase_battery_level();
 
 
