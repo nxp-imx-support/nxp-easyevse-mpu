@@ -1312,6 +1312,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
               lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
               return 1;
@@ -1357,6 +1358,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
           lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
           char string_time_out[20];
           char diff_time[20];
 
@@ -1416,6 +1418,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
             UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
 
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
@@ -1919,71 +1922,128 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
         printf("Demo topic for V2G direction\n");
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
-        char connection_display[32];
-            // Validate payload
+         printf("\n========================================\n");
+        printf(">>> HW_CAPABILITIES RECEIVED <<<\n");
+        printf("Payload length: %d\n", message->payloadlen);
+        printf("========================================\n");
+        
+        // Validate payload
         if (message->payloadlen <= 0 || message->payload == NULL) {
             UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            printf("ERROR: Empty payload\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
             return 1;
         }
+        
+        // Print raw payload for debugging (truncate if too long)
+        int print_len = message->payloadlen < 500 ? message->payloadlen : 500;
+        printf("Raw payload: %.*s\n", print_len, (char *)message->payload);
         
         char *payload_str = (char *)message->payload;
         char *connector_start = strstr(payload_str, "\"connector_type\":");
         
         // Check if connector_type field exists
         if (connector_start == NULL) {
+            // Try alternate formats
+            connector_start = strstr(payload_str, "\"connector_type\" :");
+            if (connector_start == NULL) {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+                printf("ERROR: connector_type field not found in payload\n");
+                MQTTClient_freeMessage(&message);
+                MQTTClient_free(topic);
+                return 1;
+            }
+        }
+        
+        printf("Found connector_type at position: %ld\n", (long)(connector_start - payload_str));
+
+        // Skip past "connector_type" and find the value
+        char *value_start = strchr(connector_start, ':');
+        if (value_start == NULL) {
             UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            printf("ERROR: No colon after connector_type\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
             return 1;
         }
-
-        // Skip past "connector_type": and whitespace/quotes
-        connector_start += 17;
-        while (*connector_start == ' ' || *connector_start == '\t' || *connector_start == '"') {
-            connector_start++;
+        
+        value_start++;  // Skip past ':'
+        
+        // Skip whitespace and opening quote
+        while (*value_start == ' ' || *value_start == '\t' || *value_start == '\n' || *value_start == '\r') {
+            value_start++;
         }
         
-        // Find closing quote
-        char *connector_end = strchr(connector_start, '"');
-        if (connector_end == NULL || (connector_end - connector_start) <= 0) {
+        if (*value_start != '"') {
             UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            printf("ERROR: Expected quote after colon, got: '%c' (0x%02X)\n", *value_start, (unsigned char)*value_start);
+            MQTTClient_freeMessage(&message);
+            MQTTClient_free(topic);
+            return 1;
+        }
+        
+        value_start++;  // Skip opening quote
+        
+        // Find closing quote
+        char *value_end = strchr(value_start, '"');
+        if (value_end == NULL || (value_end - value_start) <= 0) {
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            printf("ERROR: No closing quote found\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
             return 1;
         }
 
         // Extract connector type string
-        int connector_len = connector_end - connector_start;
+        int connector_len = value_end - value_start;
+        if (connector_len >= 64) connector_len = 63;
+        
         char connector_type[64];
-        strncpy(connector_type, connector_start, connector_len);
+        strncpy(connector_type, value_start, connector_len);
         connector_type[connector_len] = '\0';
         
-        // Map connector type to display string
-        const char *display_text = NULL;
+        printf("Extracted connector_type: '%s' (length: %d)\n", connector_type, connector_len);
         
-        if (strcasestr(connector_type, "IEC62196Type2Cable") || strcasestr(connector_type, "Type2Cable")) {
-            display_text = "Sigboard: Type2 Cable";
-        } else if (strcasestr(connector_type, "IEC62196Type2Socket") || strcasestr(connector_type, "Type2Socket")) {
-            display_text = "Sigboard: Type2 Socket";
-        } else if (strcasestr(connector_type, "Type1")) {
-            display_text = "Sigboard: Type1";
-        } else if (strcasestr(connector_type, "CCS")) {
-            display_text = "Sigboard: CCS";
-        } else if (strcasestr(connector_type, "CHAdeMO")) {
-            display_text = "Sigboard: CHAdeMO";
-        } else {
-            // Unknown connector - display raw value
+        // Map connector type to display string
+        if (strcasestr(connector_type, "IEC62196Type2Cable") != NULL || 
+            strcasestr(connector_type, "Type2Cable") != NULL) {
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type2 Cable");
+            printf("Matched: Type2 Cable\n");
+            
+        } else if (strcasestr(connector_type, "IEC62196Type2Socket") != NULL || 
+                   strcasestr(connector_type, "Type2Socket") != NULL) {
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type2 Socket");
+            printf("Matched: Type2 Socket\n");
+            
+        } else if (strcasestr(connector_type, "Type1") != NULL) {
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type1");
+            printf("Matched: Type1\n");
+            
+        } else if (strcasestr(connector_type, "CCS") != NULL) {
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: CCS");
+            printf("Matched: CCS\n");
+            
+        } else if (strcasestr(connector_type, "CHAdeMO") != NULL) {
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: CHAdeMO");
+            printf("Matched: CHAdeMO\n");
+            
+        } else if (strlen(connector_type) > 0) {
+            // Unknown but valid connector - display raw value
             snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: %s", connector_type);
-            display_text = label_sigboard_buffer;
-        }
-        // Update label
-        if (display_text != label_sigboard_buffer) {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, display_text);
+            printf("Unknown connector, using raw value: %s\n", connector_type);
+            
         } else {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: NA");
+            printf("Empty connector type\n");
         }
+        
+        // Update the label (FIXED - always use the buffer directly)
+        lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
+        lv_obj_invalidate(guider_ui.screen_label_56);  // Force redraw
+        
+        printf(">>> Sigboard label updated to: '%s' <<<\n", label_sigboard_buffer);
+        printf("========================================\n\n");
     
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info") == 0 ) {
         if (message->payloadlen <= 0 || message->payload == NULL) {
