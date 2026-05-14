@@ -40,11 +40,6 @@
  *********************/
 #define ADDRESS     "localhost:1883" // Example broker 
 #define CLIENTID    "MQTTClient" 
-// #define TOPIC       "everest_external/nodered/1/cmd/set_max_current" 
-// #define TOPIC       "everest_external/nodered/1/#" 
-// #define PAYLOAD     "unplug" 
-// #define PAYLOAD  "12"   
-// "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;unplug"  
 #define QOS         1 
 #define TIMEOUT     10000L 
 
@@ -60,22 +55,14 @@
  *********************/
 // Centralized MQTT topics - used for initial subscription and reconnection
 static const char* MQTT_TOPICS[] = {
-    // "everest_external/nodered/1/powermeter/totalKWattHr",
-    // "everest_external/nodered/1/powermeter/totalKw",
-    // "everest_external/nodered/1/state/state_string",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
     "everest_api/ocpp/var/connection_status",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info",
-    // "everest_external/nodered/1/ev/battery_level",
-    // "everest_external/nodered/1/iso15118/mode",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter",
-    // "everest_external/nodered/1/iso15118/direction",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
-    // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
-    // "everest_external/nodered/1/nfc/card_status",    // Commented - not currently used
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info" 
 };
 
@@ -106,6 +93,13 @@ static void update_battery_display(float soc);
 
 // Estimated time calculation prototype (Feature 2)
 static void update_estimated_remaining_time(float remaining_energy_wh, float rate_wh_per_sec);
+
+// ============================================
+// PENDING STATE UPDATE (Thread-safe LVGL updates)
+// ============================================
+static bool pending_state_update = false;
+static char pending_state_text[64] = "";
+static uint32_t pending_state_color = 0xdcd1e5;
 
 
 /**********************
@@ -166,6 +160,15 @@ static const float TARGET_SOC = 100.0f;
 
 // Flag to stop updates when battery reaches 100%
 static bool charging_complete = false;
+
+
+// ============================================
+// PENDING SESSION END (Minimal - Image + Popup only)
+// ============================================
+static bool pending_show_popup = false;
+static bool pending_change_image = false;
+static const lv_img_dsc_t *pending_image_src = NULL;
+static uint32_t pending_image_tick = 0;
 
 
 // ============================================
@@ -280,7 +283,6 @@ Time startTime, endTime, diffTime;
 int startTimeInSeconds, endTimeInSeconds, diffInSeconds;
 // Time calculation code end
 
-// Add this function before custom_init()
 static void clock_update_timer_cb(lv_timer_t * timer)
 {
     static int last_displayed_second = -1;
@@ -573,6 +575,43 @@ static void internet_check_timer_cb(lv_timer_t *timer) {
     }
 }
 
+// Timer callback to apply pending state label update (runs in LVGL main thread)
+static void state_update_timer_cb(lv_timer_t * timer)
+{
+    if (pending_state_update) {
+        UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, pending_state_text);
+        lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(pending_state_color), LV_PART_MAIN|LV_STATE_DEFAULT);
+        lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+        lv_obj_invalidate(guider_ui.screen_label_1);
+        
+        printf(">>> STATE APPLIED TO UI: '%s' <<<\n", pending_state_text);
+        
+        pending_state_update = false;
+    }
+
+    // ========== Handle pending background image change ==========
+    if (pending_change_image) {
+        if (pending_image_src != NULL) {
+            lv_img_set_src(guider_ui.screen_img_2, pending_image_src);
+            printf(">>> Background image changed (thread-safe) <<<\n");
+        }
+        pending_change_image = false;
+        pending_image_src = NULL;
+        pending_image_tick = lv_tick_get();  // Record when image was set
+    }
+
+    // ========== Handle pending popup display (after image settles) ==========
+    if (pending_show_popup) {
+        uint32_t elapsed = lv_tick_get() - pending_image_tick;
+        // Wait 150ms after image change before showing popup
+        if (elapsed >= 150) {
+            lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+            printf(">>> Popup displayed (thread-safe, after image) <<<\n");
+            pending_show_popup = false;
+        }
+    }
+
+}
 
 void custom_init(lv_ui *ui)
 {
@@ -582,6 +621,10 @@ void custom_init(lv_ui *ui)
 
   lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 1000, NULL);
   lv_timer_t *internet_timer = lv_timer_create(internet_check_timer_cb, 30000, NULL);
+
+  // Create state update timer (every 50ms for responsive UI)
+  lv_timer_t * state_timer = lv_timer_create(state_update_timer_cb, 50, NULL);
+
 
   // Show cont_4 overlay by default (waiting for EVerest/MQTT)
   lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
@@ -1092,6 +1135,16 @@ static void update_estimated_remaining_time(float remaining_energy_wh, float cur
     UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, time_str);
 }
 
+// Thread-safe function to request state label update (called from MQTT thread)
+static void request_state_update(const char *state_text, uint32_t color) {
+    strncpy(pending_state_text, state_text, sizeof(pending_state_text) - 1);
+    pending_state_text[sizeof(pending_state_text) - 1] = '\0';
+    pending_state_color = color;
+    pending_state_update = true;
+    
+    printf(">>> STATE UPDATE QUEUED: '%s' <<<\n", state_text);
+}
+
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
 
     static unsigned long msg_count = 0;
@@ -1180,11 +1233,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("=== SESSION EVENT: '%s' ===\n", event_value);
         //#########################################################################################
 
-    //    UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, (char *)message->payload);
-        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, event_value);
-        // lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-        // lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        
             // ============================================
             // CENTRALIZED STATE MAPPING
             // ============================================
@@ -1196,12 +1244,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             
             // Map event names to display states
             if (strcmp(event_value, "ChargingStarted") == 0) {
-                display_state = "Charging";
+                display_state = "Charging Started";
                 state_color = 0xd0ff00;  // Green/Yellow
                 state_handled = true;
                 
             } else if (strcmp(event_value, "ChargingResumed") == 0) {
-                display_state = "Charging";
+                display_state = "ChargingResumed";
                 state_color = 0xd0ff00;  // Green/Yellow
                 state_handled = true;
                 
@@ -1241,7 +1289,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 active_session = false;
                 
             } else if (strcmp(event_value, "Enabled") == 0) {
-                display_state = "Unplugged";
+                display_state = "Enabled";
                 state_color = 0xdcd1e5;  // Gray
                 state_handled = true;
                 active_session = false;
@@ -1282,19 +1330,16 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             }
             
             // ============================================
-            // SINGLE LABEL UPDATE POINT
+            // SINGLE LABEL UPDATE POINT (Thread-safe)
             // ============================================
             if (display_state != NULL) {
-                printf(">>> UPDATING LABEL: '%s' -> '%s' (color: 0x%06X) <<<\n", 
-                       label_state_buffer, display_state, state_color);
+                printf(">>> REQUESTING STATE UPDATE: '%s' -> '%s' (color: 0x%06X) <<<\n", 
+                    label_state_buffer, display_state, state_color);
                 
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, display_state);
-                lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(state_color), LV_PART_MAIN|LV_STATE_DEFAULT);
-                lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-                lv_obj_invalidate(guider_ui.screen_label_1);  // Force redraw
-                
-                printf(">>> LABEL UPDATED SUCCESSFULLY <<<\n");
+                // Thread-safe: Queue update for LVGL main thread
+                request_state_update(display_state, state_color);
             }
+
 
 
       if (
@@ -1343,7 +1388,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // pause_time_captured will be reset later
           
           lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-          lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
+        //   lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
+        //   replaced with below
+        // Queue image change for main thread (prevents glitch)
+        pending_image_src = &_Car_Unplugged_0_alpha_1277x797;
+        pending_change_image = true;
+
           
           // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
           UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
@@ -1402,6 +1452,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           if (is_session_started){
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+            // replaced with below
+            // Queue popup display for main thread (after image settles)
+            pending_show_popup = true;
+
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             battery_level = 00.0;
             totalKWattHr = 0.000;
@@ -1447,9 +1501,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       if (
           strcmp(event_value, "SessionStarted") == 0 ||
           strcmp(event_value, "AuthRequired") == 0 
-        //   ||
-        //   strcmp(event_value, "ChargingFinished") == 0
-          // strcmp((char *)message->payload, "PrepareCharging") == 0
       ) {
           active_session = false;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_alpha_1280x800);
@@ -1460,10 +1511,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           strcmp(event_value, "AuthRequired") == 0
       ) {
           active_session = false;
-        //   lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        //   UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Plugged in");
-        // //   sleep(1);
-        //   UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "AuthRequired");
           is_new_session = true;	
       }
       
@@ -1491,58 +1538,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       }
 
       if ((strcmp(event_value,"Authorized") == 0) && (is_new_session)){
-        // lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Authenticating...");
         char string_time[20];
         set_screen_digital_clock_1();
         is_session_started = true;
         active_session = false;
         session_end_processed = false;  // ADD THIS LINE - Reset for new session
-        // sleep(2);
 
-        // lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
-        // lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
-        // lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
-        // lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
       }
-
-    //   if (strcmp((char *)message->payload,"Idle") == 0){
-    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
-    //     // char string_time_out[20];
-    //     // char diff_time[20];
-
-    //     // set_screen_digital_clock_1();
-    //     // endTime.hours = atoi(hour);
-    //     // endTime.minutes = atoi(minutes);
-    //     // endTime.seconds = atoi(seconds); 
-    //     // endTime.ampm = strcmp(am_pm,"AM") ? 'A' : 'p';
-
-    //     // startTimeInSeconds = timeToSeconds(startTime);
-    //     // endTimeInSeconds = timeToSeconds(endTime);
-
-    //     // diffInSeconds = endTimeInSeconds - startTimeInSeconds;
-    //     // if (diffInSeconds < 0){
-    //     //   diffInSeconds +=86400;
-    //     // }
-    //     // diffTime = secondsToTime(diffInSeconds);
-
-    //     // if (diffTime.hours == 12){
-    //     //   diffTime.hours = 00;
-    //     // }
-        
-    //     // snprintf(string_time_out, sizeof(string_time_out), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
-    //     // snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", diffTime.hours, diffTime.minutes, diffTime.seconds);
-    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
-    //     // UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
-    //     // if (is_session_started){
-    //     //   lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
-    //     //   is_session_started = false;
-    //     // }
-    //   }
       
     } else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
     //   printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
@@ -1574,15 +1580,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                  (char *)message->payload);
       }
         
-    // } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKWattHr") == 0){
-    //   // will uncomment with actual values
-    //   // UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, (char *)message->payload);
-    //   // strcpy(final_energy,(char *)message->payload);
-    //   mqtt_energy_kwh = atof((char *)message->payload);
-    //   strcpy(final_energy, (char *)message->payload);
-    //   printf("Received totalKWattHr: %.3f\n", mqtt_energy_kwh);
-
-    //   printf("this is blank");
       // will uncomment with actual values
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id") == 0) {
       char evse_id_display[128];
@@ -2040,7 +2037,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                     UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_time_buffer, "--:--:--");
                     UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
                     is_mqtt_end_time_captured = true;
-                    // printf("(MQTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT): %s\n", local_time);
                 }
             }
         }
@@ -2404,10 +2400,6 @@ int subscribe_to_mqtt_topics() {
 void get_mqtt_state_for_evse()
 {
   
-  // lv_label_set_text(guider_ui.pageStatic_label_1, PAYLOAD);
-  // MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL); 
-  // MQTTClient_setCallbacks(client, NULL, NULL, messageArrived, NULL);
-
   MQTTClient_create(&client, ADDRESS, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL); 
   MQTTClient_setCallbacks(client, NULL, connectionLost, messageArrived, NULL);
 
@@ -2445,17 +2437,6 @@ void get_mqtt_state_for_evse()
   ////////////////////////replace subscription end
 }
 
-// void pause_charging(){
-//   pubmsg.payload = "pause_charging"; 
-//   pubmsg.payloadlen = (int)strlen("pause_charging"); 
-//   pubmsg.qos = QOS; 
-//   pubmsg.retained = 0;
-  
-//   MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/pause_charging", &pubmsg, NULL); 
-//   printf("Message published: %s\n", "pause_charging"); 
-//   active_session = false;
-// }
- 
 /**
  * Pause charging session using direct EVerest API
  * Topic: everest_api/evse_manager_1/cmd/pause_charging
@@ -2544,23 +2525,6 @@ void resume_charging(){
     printf("========================================\n\n");
 }
 
-
-// static void screen_slider_1_event_custom_handler (lv_event_t *e)
-// {
-//     lv_obj_t * slider = lv_event_get_target(e);
-//     char buf[8];
-//     char publish_buffer[8];
-//     lv_snprintf(label_slider1_buffer, sizeof(label_slider1_buffer), "MAX: %d%%", (int)lv_slider_get_value(slider));
-//     lv_snprintf(publish_buffer, sizeof(buf), "%d%", (int)lv_slider_get_value(slider));
-//     lv_label_set_text_static(guider_ui.screen_label_6, label_slider1_buffer);
-//     pubmsg.payload = publish_buffer; 
-//     pubmsg.payloadlen = (int)strlen(publish_buffer); 
-//     pubmsg.qos = QOS; 
-//     pubmsg.retained = 0;
-    
-//     MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/set_max_current", &pubmsg, NULL); 
-//     printf("Message published: %s\n", publish_buffer);
-// }
 void increase_battery_level(){
     char battery_level_to_str[50];
     int battery_level_to_int;
@@ -2647,10 +2611,6 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
             // unplug(); 
             UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
             lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-            // lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
-            // lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
-            // lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
-            // lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
     		lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
     		lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
@@ -2659,11 +2619,6 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
 		}
 		case 1:
 		{
-			// lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-          
-            // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
-            //UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "12:12:12");
-            // plug_in();
             is_new_session = true;			
 			break;
 		}
