@@ -41,9 +41,9 @@
 #define ADDRESS     "localhost:1883" // Example broker 
 #define CLIENTID    "MQTTClient" 
 // #define TOPIC       "everest_external/nodered/1/cmd/set_max_current" 
-#define TOPIC       "everest_external/nodered/1/#" 
+// #define TOPIC       "everest_external/nodered/1/#" 
 // #define PAYLOAD     "unplug" 
-#define PAYLOAD  "12"   
+// #define PAYLOAD  "12"   
 // "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;unplug"  
 #define QOS         1 
 #define TIMEOUT     10000L 
@@ -61,17 +61,17 @@
 // Centralized MQTT topics - used for initial subscription and reconnection
 static const char* MQTT_TOPICS[] = {
     // "everest_external/nodered/1/powermeter/totalKWattHr",
-    "everest_external/nodered/1/powermeter/totalKw",
-    "everest_external/nodered/1/state/state_string",
+    // "everest_external/nodered/1/powermeter/totalKw",
+    // "everest_external/nodered/1/state/state_string",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
     "everest_api/ocpp/var/connection_status",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/evse_id",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info",
-    "everest_external/nodered/1/ev/battery_level",
-    "everest_external/nodered/1/iso15118/mode",
+    // "everest_external/nodered/1/ev/battery_level",
+    // "everest_external/nodered/1/iso15118/mode",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter",
-    "everest_external/nodered/1/iso15118/direction",
+    // "everest_external/nodered/1/iso15118/direction",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
     // "everest_external/nodered/1/nfc/card_type",      // Commented - not currently used
@@ -166,6 +166,7 @@ static const float TARGET_SOC = 100.0f;
 
 // Flag to stop updates when battery reaches 100%
 static bool charging_complete = false;
+
 
 // ============================================
 // ESTIMATED TIME CALCULATION VARIABLE
@@ -657,7 +658,7 @@ void custom_init(lv_ui *ui)
   //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
   //lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_custom_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-  lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
+//   lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(ui->screen_slider_2, screen_slider_2_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   
   //Write style for screen_bar_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -794,7 +795,7 @@ void check_lvgl_memory() {
 static bool should_process_message(const char *topic) {
     // Skip rate limiting for critical topics that need immediate processing
     const char *critical_topics[] = {
-        "everest_external/nodered/1/state/state_string",  // State changes are critical
+        // "everest_external/nodered/1/state/state_string",  // State changes are critical
         "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
         "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
         "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info",
@@ -1543,44 +1544,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     //     // }
     //   }
       
-    } else if (strcmp(topic,"everest_external/nodered/1/state/temperature") == 0){
-    printf("depricated_block");
-        
-    } else if (strcmp(topic,"everest_external/nodered/1/powermeter/totalKw") == 0){
-      // UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, topic);
-      //move to increare_batery_level 
-      // lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, atoi(message->payload));
-      // lv_label_set_text_fmt(gui->speed_label_digit, "%"LV_PRId32, speed);
-      //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
-    //   mqtt_power_kw = atof((char *)message->payload);
-    //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
-      //move to increare_batery_level UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
-
-    //    int result = system("ping -c 1 8.8.8.8 -W 2 2>/dev/null 1>/dev/null");
-    //   //move to increare_batery_level 
-    //   //UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, (char *)message->payload);
-    // //   mqtt_power_kw = atof((char *)message->payload);
-    // //   printf("Received totalKw: %.2f\n", mqtt_power_kw);
-
-    //   // Network connectivity check and icon update
-    //   if (result == 0) {
-    //     //   printf("Internet connection is available.\n");
-    //       lv_obj_add_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-    //       // lv_obj_add_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-    //       lv_obj_clear_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
-    //       lv_obj_add_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
-        
-    //   } else {
-    //       lv_obj_clear_flag(guider_ui.screen_label_13, LV_OBJ_FLAG_HIDDEN);
-    //       // lv_obj_clear_flag(guider_ui.screen_label_15, LV_OBJ_FLAG_HIDDEN);
-    //       lv_obj_add_flag(guider_ui.screen_img_6, LV_OBJ_FLAG_HIDDEN);
-    //       lv_obj_clear_flag(guider_ui.screen_img_17, LV_OBJ_FLAG_HIDDEN);
-    //     //   printf("Internet connection is not available.\n");
-    //   } 
-    increase_battery_level();
-
-
-    }else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
+    } else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
     //   printf("Received CSMS connection status: %s, value: %.*s\n", topic, message->payloadlen, (char *)message->payload);
       
       // Handle connection status values: "connected", "disconnected", "unknown"
@@ -1763,36 +1727,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("ev_info: remaining_energy_needed field not found\n");
         }
     
-    } else if (strcmp(topic, "everest_external/nodered/1/ev/battery_level") == 0) {
-        // Store MQTT battery level
-        if (message->payloadlen > 0 && message->payload != NULL) {
-            mqtt_battery_level = atof((char *)message->payload);
-            printf("Battery Level from MQTT: %.1f\n", mqtt_battery_level);
-        } else {
-            mqtt_battery_level = -1.0f;  // Reset to no data
-            printf("Battery Level: No data (empty payload)\n");
-        }
-        
-    } else if (strcmp(topic, "everest_external/nodered/1/iso15118/mode") == 0) {
-        char iso_mode_display[32];
-        
-        if (message->payloadlen > 0 && message->payload != NULL) {
-            char mode = ((char *)message->payload)[0];  // Get first character (A, B, C, D, E, or F)
-            
-            // Validate mode is A-F
-            if ((mode >= 'A' && mode <= 'F') || (mode >= 'a' && mode <= 'f')) {
-                snprintf(label_iso_mode_buffer, sizeof(label_iso_mode_buffer), "ISO Mode: %c", toupper(mode));
-                lv_label_set_text_static(guider_ui.screen_label_52, label_iso_mode_buffer);
-                printf("ISO 15118 Mode: %c\n", toupper(mode));
-            } else {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
-                printf("ISO 15118 Mode: Invalid mode '%s'\n", (char *)message->payload);
-            }
-        } else {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_52, label_iso_mode_buffer, "ISO Mode: NA");
-            printf("ISO 15118 Mode: NA (empty payload)\n");
-        }
-        
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/selected_protocol") == 0) {
         char protocol_display[64];
         
@@ -1917,10 +1851,9 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 }
             }
         }
-        
 
-    } else if (strcmp(topic, "everest_external/nodered/1/iso15118/direction") == 0) {
-        printf("Demo topic for V2G direction\n");
+        increase_battery_level();      
+
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities") == 0) {
          printf("\n========================================\n");
         printf(">>> HW_CAPABILITIES RECEIVED <<<\n");
@@ -2512,39 +2445,6 @@ void get_mqtt_state_for_evse()
   ////////////////////////replace subscription end
 }
 
-void set_max_temp(){
-  pubmsg.payload = "12"; 
-  pubmsg.payloadlen = (int)strlen("12"); 
-  pubmsg.qos = QOS; 
-  pubmsg.retained = 0;
-  
-  MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/set_max_current", &pubmsg, NULL); 
-  printf("Message published: %s\n", "12");
-}
-
-
-void plug_in(){
-  pubmsg.payload = "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;unplug"; 
-  pubmsg.payloadlen = (int)strlen("sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;unplug"); 
-  pubmsg.qos = QOS; 
-  pubmsg.retained = 0;
-  
-  MQTTClient_publishMessage(client, "everest_external/nodered/1/carsim/cmd/execute_charging_session", &pubmsg, NULL); 
-  printf("Message published: %s\n", "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000;unplug");
-}
-
-void unplug(){
-  pubmsg.payload = "unplug"; 
-  pubmsg.payloadlen = (int)strlen("unplug"); 
-  pubmsg.qos = QOS; 
-  pubmsg.retained = 0;
-
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_27, label_energy_buffer, final_energy);
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer, final_energy);
-  MQTTClient_publishMessage(client, "everest_external/nodered/1/carsim/cmd/modify_charging_session", &pubmsg, NULL); 
-  printf("Message published: %s\n", "unplug"); 
-}
-
 // void pause_charging(){
 //   pubmsg.payload = "pause_charging"; 
 //   pubmsg.payloadlen = (int)strlen("pause_charging"); 
@@ -2645,22 +2545,22 @@ void resume_charging(){
 }
 
 
-static void screen_slider_1_event_custom_handler (lv_event_t *e)
-{
-    lv_obj_t * slider = lv_event_get_target(e);
-    char buf[8];
-    char publish_buffer[8];
-    lv_snprintf(label_slider1_buffer, sizeof(label_slider1_buffer), "MAX: %d%%", (int)lv_slider_get_value(slider));
-    lv_snprintf(publish_buffer, sizeof(buf), "%d%", (int)lv_slider_get_value(slider));
-    lv_label_set_text_static(guider_ui.screen_label_6, label_slider1_buffer);
-    pubmsg.payload = publish_buffer; 
-    pubmsg.payloadlen = (int)strlen(publish_buffer); 
-    pubmsg.qos = QOS; 
-    pubmsg.retained = 0;
+// static void screen_slider_1_event_custom_handler (lv_event_t *e)
+// {
+//     lv_obj_t * slider = lv_event_get_target(e);
+//     char buf[8];
+//     char publish_buffer[8];
+//     lv_snprintf(label_slider1_buffer, sizeof(label_slider1_buffer), "MAX: %d%%", (int)lv_slider_get_value(slider));
+//     lv_snprintf(publish_buffer, sizeof(buf), "%d%", (int)lv_slider_get_value(slider));
+//     lv_label_set_text_static(guider_ui.screen_label_6, label_slider1_buffer);
+//     pubmsg.payload = publish_buffer; 
+//     pubmsg.payloadlen = (int)strlen(publish_buffer); 
+//     pubmsg.qos = QOS; 
+//     pubmsg.retained = 0;
     
-    MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/set_max_current", &pubmsg, NULL); 
-    printf("Message published: %s\n", publish_buffer);
-}
+//     MQTTClient_publishMessage(client, "everest_external/nodered/1/cmd/set_max_current", &pubmsg, NULL); 
+//     printf("Message published: %s\n", publish_buffer);
+// }
 void increase_battery_level(){
     char battery_level_to_str[50];
     int battery_level_to_int;
@@ -2744,7 +2644,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
 			// lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
           
             // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
-            unplug(); 
+            // unplug(); 
             UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
             lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
             // lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
@@ -2763,7 +2663,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
           
             // MQTTClient_message pubmsg = MQTTClient_message_initializer; 
             //UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "12:12:12");
-            plug_in();
+            // plug_in();
             is_new_session = true;			
 			break;
 		}
