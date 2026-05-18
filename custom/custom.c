@@ -701,7 +701,9 @@ void custom_init(lv_ui *ui)
   //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
   //lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_custom_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-//   lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
+  lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_DISABLED);
+
+  //   lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(ui->screen_slider_2, screen_slider_2_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   
   //Write style for screen_bar_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
