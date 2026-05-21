@@ -24,6 +24,8 @@
 #include "events_init.h"
 #include "widgets_init.h"
 #include <ctype.h>
+#include <math.h>
+
 // Add these includes at the top if not already present
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -34,6 +36,9 @@
 #include <sys/ioctl.h>
 #include <linux/wireless.h>
 
+
+LV_IMG_DECLARE(_arrow_red_alpha_80x67);
+LV_IMG_DECLARE(_arrow_green_alpha_80x67);
 
 /*********************
  *      DEFINES
@@ -699,7 +704,6 @@ void custom_init(lv_ui *ui)
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
   //lv_obj_add_event_cb(ui->screen_img_18, screen_img_18_custom_event_custom_handler, LV_EVENT_ALL, ui);
-  //lv_obj_add_event_cb(ui->screen_img_19, screen_img_19_custom_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
   lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_DISABLED);
 
@@ -1402,6 +1406,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
           lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
@@ -1546,10 +1551,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         active_session = false;
         session_end_processed = false;  // ADD THIS LINE - Reset for new session
 
-        lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
+        // commenting for now - will be used later SOC related
+        // lv_obj_clear_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_clear_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_clear_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
+        // lv_obj_clear_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
+        // commenting for now - will be used later
       }
       
     } else if (strcmp(topic,"everest_api/ocpp/var/connection_status") == 0){
@@ -1817,8 +1824,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 }
                 
                 float current_l1 = atof(l1_start);
+                current_l1 = fabsf(current_l1);  // Always display as positive (V2G sends negative)
                 snprintf(label_current_buffer, sizeof(label_current_buffer), "%.1f A", current_l1);
                 lv_label_set_text_static(guider_ui.screen_label_60, label_current_buffer);
+                // printf("Current L1 (MQTT): %.1f A\n", current_l1);
+
                 // printf("Current L1 (MQTT): %.1f A\n", current_l1);
             }
         }
@@ -2100,21 +2110,42 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         // ========== Determine charging direction (G2V vs V2G) ==========
         // ONLY update direction during active session - prevents overwriting "NA" after session ends
+        lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
         if (!session_end_processed && (has_energy || discharged_wh > 0)) {
             if (energy_wh > discharged_wh) {
                 // More energy charged than discharged = Grid to Vehicle
                 snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: G2V");
+                lv_img_set_src(guider_ui.screen_img_19, &_arrow_green_alpha_80x67);
+                lv_obj_clear_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
                 lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
             } else if (discharged_wh > energy_wh) {
                 // More energy discharged than charged = Vehicle to Grid
                 snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: V2G");
                 lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
+                // Set red arrow for V2G (discharging)
+                lv_img_set_src(guider_ui.screen_img_19, &_arrow_red_alpha_80x67);
+                lv_obj_clear_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
+
+                // Display discharged energy on label_3 (same format as charged energy)
+                if (!charging_complete) {
+                    float discharged_kwh = discharged_wh / 1000.0f;
+                    snprintf(final_energy, sizeof(final_energy), "%.3f kWh", discharged_kwh);
+
+                    if (is_mqtt_end_time_captured) {
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, "0.000 kWh");
+                    } else {
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer_mqtt, final_energy);
+                        UPDATE_LABEL_SAFE(guider_ui.screen_label_28, label_energy_buffer_mqtt_summary, final_energy);
+                    }
+                }
             } else if (energy_wh == 0 && discharged_wh == 0) {
                 // No energy flow yet
                 snprintf(label_direction_buffer, sizeof(label_direction_buffer), "Direction: NA");
+                lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
                 lv_label_set_text_static(guider_ui.screen_label_55, label_direction_buffer);
             }
         }
+
 
         
         // ========== Parse transaction_duration_s ==========
@@ -2615,6 +2646,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
             lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
             lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
     		lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
     		lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
     		lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
 			break;
@@ -2639,13 +2671,6 @@ static void screen_img_18_custom_event_custom_handler (lv_event_t *e)
 {
   // pause_charging();
   UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "final_energy: Pause");
-}
-
-static void screen_img_19_custom_event_custom_handler (lv_event_t *e)
-{
-  // resume_charging();
-  is_new_session = false;
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "final_energy: Play");
 }
 
 static void screen_sw_2_custom_event_custom_handler (lv_event_t *e)

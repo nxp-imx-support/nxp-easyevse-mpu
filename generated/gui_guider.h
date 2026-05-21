@@ -1,5 +1,5 @@
 /*
-* Copyright 2023-2026 NXP
+* Copyright 2026 NXP
 * NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be used strictly in
 * accordance with the applicable license terms. By expressly accepting such terms or by downloading, installing,
 * activating and/or otherwise using the software, you are agreeing that you have read, and that you agree to
@@ -82,6 +82,7 @@ typedef struct
 	lv_obj_t *screen_label_59;
 	lv_obj_t *screen_label_60;
 	lv_obj_t *screen_label_61;
+	lv_obj_t *screen_img_19;
 	lv_obj_t *screen_cont_3;
 	lv_obj_t *screen_label_14;
 	lv_obj_t *screen_img_9;
@@ -128,7 +129,7 @@ extern lv_ui guider_ui;
 void setup_scr_screen(lv_ui *ui);
 LV_IMG_DECLARE(_Car_Unplugged_0_alpha_1277x797);
 LV_IMG_DECLARE(_thermometeroutline_transparent_g_alpha_49x46);
-LV_IMG_DECLARE(_flashoutline_transparent_steel_blue_alpha_39x38);
+LV_IMG_DECLARE(_flashoutline_transparent_steel_blue_alpha_47x54);
 LV_IMG_DECLARE(_network_transparent_alpha_50x50);
 LV_IMG_DECLARE(_locationsharp_transparent_alpha_30x29);
 LV_IMG_DECLARE(_clouddone1_transparent_alpha_47x41);
@@ -137,10 +138,12 @@ LV_IMG_DECLARE(_Car_plugged_alpha_1280x800);
 LV_IMG_DECLARE(_cloudofflinesharp_transparent_gray29_alpha_47x41);
 LV_IMG_DECLARE(_network_transparent_gray_alpha_50x50);
 LV_IMG_DECLARE(_Designer_Manual_Edit_alpha_210x210);
+LV_IMG_DECLARE(_arrow_green_alpha_80x67);
 LV_IMG_DECLARE(_pngwing_close_alpha_51x51);
 
 LV_FONT_DECLARE(lv_font_arial_30)
 LV_FONT_DECLARE(lv_font_montserratMedium_16)
+LV_FONT_DECLARE(lv_font_arial_51)
 LV_FONT_DECLARE(lv_font_arial_18)
 LV_FONT_DECLARE(lv_font_montserratMedium_12)
 LV_FONT_DECLARE(lv_font_arial_20)
