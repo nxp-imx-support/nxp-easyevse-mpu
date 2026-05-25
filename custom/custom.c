@@ -1248,93 +1248,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             uint32_t state_color = 0xdcd1e5;  // Default gray
             bool state_handled = false;
             
-            // Map event names to display states
-            if (strcmp(event_value, "ChargingStarted") == 0) {
-                display_state = "Charging Started";
-                state_color = 0xd0ff00;  // Green/Yellow
-                state_handled = true;
-                
-            } else if (strcmp(event_value, "ChargingResumed") == 0) {
-                display_state = "ChargingResumed";
-                state_color = 0xd0ff00;  // Green/Yellow
-                state_handled = true;
-                
-            } else if (strcmp(event_value, "StoppingCharging") == 0) {
-                display_state = "StoppingCharging";
-                state_color = 0xFFFF00;  // Yellow
-                state_handled = true;
-                active_session = false;
-                printf(">>> MATCHED: StoppingCharging - setting active_session=false <<<\n");
-                
-            } else if (strcmp(event_value, "ChargingPausedEV") == 0 || 
-                       strcmp(event_value, "ChargingPausedEVSE") == 0 ||
-                       strcmp(event_value, "EVSE Paused") == 0 ||
-                       strcmp(event_value, "Paused") == 0) {
-                display_state = event_value;  // Keep original
-                state_color = 0xFFA500;  // Orange
-                state_handled = true;
-                active_session = false;
-                printf(">>> MATCHED: Pause event - setting active_session=false <<<\n");
-                
-            } else if (strcmp(event_value, "ChargingFinished") == 0) {
-                display_state = event_value;  // Keep original
-                state_color = 0x00FF00;  // Green
-                state_handled = true;
-                active_session = false;
-                
-            } else if (strcmp(event_value, "TransactionFinished") == 0) {
-                display_state = "TransactionFinished";
-                state_color = 0xdcd1e5;  // Gray
-                state_handled = true;
-                active_session = false;
-                
-            } else if (strcmp(event_value, "SessionFinished") == 0) {
-                display_state = "SessionFinished";
-                state_color = 0xdcd1e5;  // Gray
-                state_handled = true;
-                active_session = false;
-                
-            } else if (strcmp(event_value, "Enabled") == 0) {
-                display_state = "Enabled";
-                state_color = 0xdcd1e5;  // Gray
-                state_handled = true;
-                active_session = false;
-                
-            } else if (strcmp(event_value, "TransactionStarted") == 0) {
-                display_state = "TransactionStarted";
-                state_color = 0x00BFFF;  // Light blue
-                state_handled = true;
-                printf(">>> MATCHED: TransactionStarted <<<\n");
-                
-            } else if (strcmp(event_value, "PrepareCharging") == 0) {
-                display_state = "PrepareCharging";
-                state_color = 0xFFFF00;  // Yellow - preparing
-                state_handled = true;
-                printf(">>> MATCHED: PrepareCharging <<<\n");
-                
-            } else if (strcmp(event_value, "SessionStarted") == 0) {
-                display_state = "SessionStarted";
-                state_color = 0xdcd1e5;  // Gray
-                state_handled = true;
-                
-            } else if (strcmp(event_value, "AuthRequired") == 0) {
-                display_state = "AuthRequired";
-                state_color = 0x00BFFF;  // Light blue
-                state_handled = true;
-                
-            } else if (strcmp(event_value, "Authorized") == 0) {
-                display_state = "Authorized";
-                state_color = 0x00FF00;  // Green
-                state_handled = true;
-                
-            } else {
-                // All other events - show original event value as-is
-                display_state = event_value;
-                state_color = 0xdcd1e5;  // Default gray
-                state_handled = true;
-                printf(">>> UNMATCHED EVENT - using default: '%s' <<<\n", event_value);
-            }
-            
             // ============================================
             // SINGLE LABEL UPDATE POINT (Thread-safe)
             // ============================================
@@ -1511,6 +1424,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_alpha_1280x800);
+
         //   lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
       }
 
@@ -1519,6 +1433,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           is_new_session = true;	
+          lv_obj_add_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
       }
       
       if (strcmp(event_value, "ChargingStarted") == 0) {
@@ -2196,7 +2111,99 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             update_estimated_remaining_time(current_remaining_energy_wh, charging_rate_wh_per_sec);
         }
 
+        // ========== Parse state for UI display ==========
+        // Uses "state" field from session_info instead of "event" from session_event
+        // EVerest EvseManager states: Unplugged, Disabled, Preparing, Reserved,
+        //   AuthRequired, WaitingForEnergy, Charging, ChargingPausedEV,
+        //   ChargingPausedEVSE, StoppingCharging, Finished, FinishedEV,
+        //   FinishedEVSE, Replug, Unknown
+        char *state_field = strstr(payload_str, "\"state\":");
+        if (state_field != NULL) {
+            state_field += 8;  // Skip past "state":
 
+            // Skip whitespace and opening quote
+            while (*state_field == ' ' || *state_field == '\t' || *state_field == '"') {
+                state_field++;
+            }
+
+            // Find closing quote
+            char *state_end = strchr(state_field, '"');
+
+            if (state_end != NULL && (state_end - state_field) > 0) {
+                char state_value[64] = {0};
+                int slen = (state_end - state_field) < 63 ? (state_end - state_field) : 63;
+                strncpy(state_value, state_field, slen);
+                state_value[slen] = '\0';
+
+                printf("=== SESSION INFO STATE: '%s' ===\n", state_value);
+
+                const char *display_state = NULL;
+                uint32_t state_color = 0xdcd1e5;  // Default gray
+
+                if (strcmp(state_value, "Charging") == 0) {
+                    display_state = "Charging";
+                    state_color = 0xd0ff00;
+
+                } else if (strcmp(state_value, "ChargingPausedEV") == 0 ||
+                           strcmp(state_value, "ChargingPausedEVSE") == 0) {
+                    display_state = state_value;
+                    state_color = 0xFFA500;
+
+                } else if (strcmp(state_value, "StoppingCharging") == 0) {
+                    display_state = "StoppingCharging";
+                    state_color = 0xFFFF00;
+
+                } else if (strcmp(state_value, "Finished") == 0) {
+                    display_state = "Finished";
+                    state_color = 0x00FF00;
+
+                } else if (strcmp(state_value, "FinishedEV") == 0) {
+                    display_state = "FinishedEV";
+                    state_color = 0x00FF00;
+
+                } else if (strcmp(state_value, "FinishedEVSE") == 0) {
+                    display_state = "FinishedEVSE";
+                    state_color = 0x00FF00;
+
+                } else if (strcmp(state_value, "Unplugged") == 0) {
+                    display_state = "Unplugged";
+                    state_color = 0xdcd1e5;
+
+                } else if (strcmp(state_value, "Preparing") == 0) {
+                    display_state = "Preparing";
+                    state_color = 0xFFFF00;
+
+                } else if (strcmp(state_value, "AuthRequired") == 0) {
+                    display_state = "AuthRequired";
+                    state_color = 0x00BFFF;
+
+                } else if (strcmp(state_value, "WaitingForEnergy") == 0) {
+                    display_state = "WaitingForEnergy";
+                    state_color = 0x00BFFF;
+
+                } else if (strcmp(state_value, "Replug") == 0) {
+                    display_state = "Replug";
+                    state_color = 0xFFFF00;
+
+                } else if (strcmp(state_value, "Disabled") == 0) {
+                    display_state = "Disabled";
+                    state_color = 0xdcd1e5;
+
+                } else if (strcmp(state_value, "Reserved") == 0) {
+                    display_state = "Reserved";
+                    state_color = 0xdcd1e5;
+
+                } else {
+                    display_state = state_value;
+                    state_color = 0xdcd1e5;
+                    printf(">>> UNKNOWN STATE - using default: '%s' <<<\n", state_value);
+                }
+
+                if (display_state != NULL) {
+                    request_state_update(display_state, state_color);
+                }
+            }
+        }
 
 
     } else if (strcmp(topic, "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status") == 0) {
