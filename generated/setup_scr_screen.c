@@ -1364,8 +1364,8 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_add_flag(ui->screen_img_19, LV_OBJ_FLAG_CLICKABLE);
 	lv_img_set_src(ui->screen_img_19, &_arrow_green_alpha_80x67);
 	lv_img_set_pivot(ui->screen_img_19, 50,50);
-	lv_img_set_angle(ui->screen_img_19, 0);
-	lv_obj_set_pos(ui->screen_img_19, 715, 181);
+	lv_img_set_angle(ui->screen_img_19, 1800);
+	lv_obj_set_pos(ui->screen_img_19, 707, 175);
 	lv_obj_set_size(ui->screen_img_19, 80, 67);
 	lv_obj_add_flag(ui->screen_img_19, LV_OBJ_FLAG_HIDDEN);
 
