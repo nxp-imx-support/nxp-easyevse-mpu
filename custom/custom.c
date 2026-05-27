@@ -502,17 +502,6 @@ void connectionLost(void *context, char *cause) {
     printf("Showing cont_4 overlay (connection lost)\n");
 }
 
-
-// Add MQTT message processing timer
-static void mqtt_process_timer_cb(lv_timer_t * timer)
-{
-    if (mqtt_connected) {
-        // Process any pending MQTT messages
-        // This ensures messages are handled even if the main loop is busy
-        MQTTClient_yield();
-    }
-}
-
 static void mqtt_reconnect_timer_cb(lv_timer_t * timer)
 {
     static unsigned long reconnect_attempts = 0;
@@ -639,10 +628,7 @@ void custom_init(lv_ui *ui)
 
   // Create watchdog timer to check MQTT activity every 1 second
   lv_timer_t * mqtt_watchdog = lv_timer_create(mqtt_watchdog_timer_cb, 1000, NULL);
-  
-  // Create MQTT message processing timer (every 100ms)
-  lv_timer_t * mqtt_process = lv_timer_create(mqtt_process_timer_cb, 100, NULL);
-  
+
   // Create MQTT reconnection timer (every 10 seconds)
   mqtt_reconnect_timer = lv_timer_create(mqtt_reconnect_timer_cb, 10000, NULL);
 
@@ -844,60 +830,6 @@ void check_lvgl_memory() {
     printf("====================\n\n");
     
     previous = current;  // Update for next check
-}
-
-// Rate limiter: Prevents processing same topic more than once per second
-// Returns: true if message should be processed, false if should be skipped
-static bool should_process_message(const char *topic) {
-    // Skip rate limiting for critical topics that need immediate processing
-    const char *critical_topics[] = {
-        // "everest_external/nodered/1/state/state_string",  // State changes are critical
-        "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",  // Auth events
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info",
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/ev_info",
-        "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
-        NULL
-    };
-    
-    // Check if this is a critical topic
-    for (int i = 0; critical_topics[i] != NULL; i++) {
-        if (strcmp(topic, critical_topics[i]) == 0) {
-            return true;  // Always process critical topics
-        }
-    }
-    
-    // Rate limit all other topics
-    typedef struct {
-        char topic[128];
-        time_t last_time;
-    } TopicTimer;
-    
-    static TopicTimer timers[20] = {0};
-    static int timer_count = 0;
-    
-    time_t now = time(NULL);
-    
-    // Find existing timer for this topic
-    for (int i = 0; i < timer_count; i++) {
-        if (strcmp(timers[i].topic, topic) == 0) {
-            if (now == timers[i].last_time) {
-                return false;  // Skip - already processed this second
-            }
-            timers[i].last_time = now;
-            return true;  // Process - new second
-        }
-    }
-    
-    // New topic - add timer
-    if (timer_count < 20) {
-        strncpy(timers[timer_count].topic, topic, sizeof(timers[timer_count].topic) - 1);
-        timers[timer_count].topic[sizeof(timers[timer_count].topic) - 1] = '\0';
-        timers[timer_count].last_time = now;
-        timer_count++;
-    }
-    
-    return true;  // Process - first time or table full
 }
 
 /**********************
@@ -1167,13 +1099,6 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
     
     msg_count++;
     time_t now = time(NULL);
-
-    // Rate limiting: Skip if same topic processed this second
-    if (!should_process_message(topic)) {
-        MQTTClient_freeMessage(&message);
-        MQTTClient_free(topic);
-        return 1;
-    }
 
     if (now - last_rate_check >= 30) {
         unsigned long msgs_in_period = msg_count - last_msg_count;
