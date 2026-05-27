@@ -83,6 +83,8 @@ typedef struct
 	lv_obj_t *screen_label_60;
 	lv_obj_t *screen_label_61;
 	lv_obj_t *screen_img_19;
+	lv_obj_t *screen_label_62;
+	lv_obj_t *screen_label_63;
 	lv_obj_t *screen_cont_3;
 	lv_obj_t *screen_label_14;
 	lv_obj_t *screen_img_9;
@@ -159,6 +161,7 @@ LV_FONT_DECLARE(lv_font_arial_21)
 LV_FONT_DECLARE(lv_font_arial_16)
 LV_FONT_DECLARE(lv_font_arial_17)
 LV_FONT_DECLARE(lv_font_arial_13)
+LV_FONT_DECLARE(lv_font_arial_22)
 LV_FONT_DECLARE(lv_font_arial_37)
 LV_FONT_DECLARE(lv_font_arial_94)
 

@@ -219,6 +219,7 @@ static char label_sigboard_buffer[32] = "Sigboard: NA";
 static char label_uid_buffer[64] = "UID: NA";
 static char label_card_type_buffer[64] = "Type: NA";
 static char label_card_status_buffer[64] = "Status: NA";
+static char label_auth_type_buffer[64] = "Auth: NA";
 static char label_current_buffer[32] = "0.0 A";
 static char label_duration_buffer[32] = "00:00:00";
 static char label_duration_buffer_mqtt[32];
@@ -229,6 +230,7 @@ static char label_location_buffer[64] = "NXP Plot 1";
 static char label_slider1_buffer[16] = "MAX: 0%";
 static char label_slider2_buffer[16] = "0%";
 static bool is_mqtt_end_time_captured=false;
+static char label_event_buffer[64] = "";
 
 
 // Helper macro to safely update labels without memory allocation
@@ -694,12 +696,14 @@ void custom_init(lv_ui *ui)
   lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
 //   printf("NFC Card Status initialized to: Status: NA\n");
 
+  // Initialize Authorization Type label
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
+
   // Initialize Current L1 display
   UPDATE_LABEL_SAFE(guider_ui.screen_label_60, label_current_buffer, "0.0 A");
 //   printf("Current L1 initialized to: 0.0 A\n");
 
-
-
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_63, label_event_buffer, "Enabled");
 
   lv_obj_add_event_cb(ui->screen_sw_1, screen_sw_1_event_custom_handler, LV_EVENT_ALL, ui);
   lv_obj_add_event_cb(ui->screen_sw_2, screen_sw_2_custom_event_custom_handler, LV_EVENT_ALL, ui);
@@ -1238,6 +1242,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             // Log parsed event
             printf("=== SESSION EVENT: '%s' ===\n", event_value);
         //#########################################################################################
+            if (strlen(event_value) > 0) {
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_63, label_event_buffer, event_value);
+            }
+
 
             // ============================================
             // CENTRALIZED STATE MAPPING
@@ -1274,6 +1282,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
               UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+              UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
               UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
@@ -1327,6 +1336,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           // Reset NFC Card UID and Type (always, regardless of session state)
           UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+          UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
           UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
@@ -1373,10 +1383,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
           if (is_session_started){
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+            // lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
             // replaced with below
             // Queue popup display for main thread (after image settles)
-            pending_show_popup = true;
+            if (strcmp(event_value, "Enabled") != 0) {
+                pending_show_popup = true;
+            }
 
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             battery_level = 00.0;
@@ -1392,6 +1404,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
             UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
             UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
             UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
@@ -2379,6 +2392,54 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
         
         }
+
+
+                // Find "authorization_type" field in token for Auth Type
+        char *auth_type_start = strstr(payload_str, "\"authorization_type\":");
+        
+        if (auth_type_start != NULL) {
+            auth_type_start += 21;  // Skip past "authorization_type":
+            
+            // Skip whitespace and opening quote
+            while (*auth_type_start == ' ' || *auth_type_start == '\t' || *auth_type_start == '"') {
+                auth_type_start++;
+            }
+            
+            // Find closing quote
+            char *auth_type_end = strchr(auth_type_start, '"');
+            
+            if (auth_type_end != NULL && (auth_type_end - auth_type_start) > 0) {
+                int auth_len = auth_type_end - auth_type_start;
+                char auth_type[64];
+                int len = auth_len < 63 ? auth_len : 63;
+                strncpy(auth_type, auth_type_start, len);
+                auth_type[len] = '\0';
+                
+                if (strcasecmp(auth_type, "RFID") == 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: RFID");
+                } else if (strcasecmp(auth_type, "PnC") == 0 ||
+                           strcasecmp(auth_type, "PlugAndCharge") == 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: PnC");
+                } else if (strcasecmp(auth_type, "eMAID") == 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: eMAID");
+                } else if (strcasecmp(auth_type, "Central") == 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: Central");
+                } else if (strcasecmp(auth_type, "Local") == 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: Local");
+                } else if (strlen(auth_type) > 0) {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: %s", auth_type);
+                } else {
+                    snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: NA");
+                }
+            } else {
+                snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: NA");
+            }
+        } else {
+            snprintf(label_auth_type_buffer, sizeof(label_auth_type_buffer), "Auth: NA");
+        }
+        
+        lv_label_set_text_static(guider_ui.screen_label_62, label_auth_type_buffer);
+
 
     } 
 
