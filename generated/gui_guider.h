@@ -77,6 +77,7 @@ typedef struct
 	lv_obj_t *screen_label_54;
 	lv_obj_t *screen_label_55;
 	lv_obj_t *screen_label_56;
+	lv_obj_t *screen_label_connector;
 	lv_obj_t *screen_label_57;
 	lv_obj_t *screen_label_58;
 	lv_obj_t *screen_label_59;

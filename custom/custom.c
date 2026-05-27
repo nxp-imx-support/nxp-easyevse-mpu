@@ -215,7 +215,8 @@ static char label_iso_mode_buffer[32] = "ISO Mode: NA";
 static char label_protocol_buffer[64] = "Protocol: NA";
 static char label_voltage_buffer[32] = "Voltage: NA";
 static char label_direction_buffer[32] = "Direction: NA";
-static char label_sigboard_buffer[32] = "Sigboard: NA";
+static char label_meter_buffer[64] = "Meter: NA";
+static char label_connector_buffer[64] = "Connector: NA";
 static char label_uid_buffer[64] = "UID: NA";
 static char label_card_type_buffer[64] = "Type: NA";
 static char label_card_status_buffer[64] = "Status: NA";
@@ -679,9 +680,11 @@ void custom_init(lv_ui *ui)
   // Initialize ISO 15118 Charging Direction label
   UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
 //   printf("ISO 15118 Direction initialized to: Direction: NA\n");
-  // Initialize Sigboard Connection Type label
-  UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
-//   printf("Sigboard Connection initialized to: Sigboard: NA\n");
+  // Initialize Meter ID label (was Sigboard - now shows powermeter meter_id)
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_meter_buffer, "Meter: NA");
+
+  // Initialize Connector Type label (shows connector_type from hw_capabilities)
+  UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
 
   // Initialize NFC Card UID label
   UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
@@ -1726,6 +1729,34 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         char *payload_str = (char *)message->payload;
         
+        // Parse meter_id (top-level string in EVerest Powermeter type) -> screen_label_56 "Meter: <id>"
+        char *meter_id_start = strstr(payload_str, "\"meter_id\":");
+        if (meter_id_start == NULL) {
+            meter_id_start = strstr(payload_str, "\"meter_id\" :");
+        }
+        if (meter_id_start != NULL) {
+            char *value_start = strchr(meter_id_start, ':');
+            if (value_start != NULL) {
+                value_start++;
+                while (*value_start == ' ' || *value_start == '\t' || *value_start == '\n' || *value_start == '\r') {
+                    value_start++;
+                }
+                if (*value_start == '"') {
+                    value_start++;
+                    char *value_end = strchr(value_start, '"');
+                    if (value_end != NULL && (value_end - value_start) > 0) {
+                        int meter_id_len = value_end - value_start;
+                        if (meter_id_len >= 48) meter_id_len = 47;
+                        char meter_id_str[64];
+                        strncpy(meter_id_str, value_start, meter_id_len);
+                        meter_id_str[meter_id_len] = '\0';
+                        snprintf(label_meter_buffer, sizeof(label_meter_buffer), "Meter: %s", meter_id_str);
+                        lv_label_set_text_static(guider_ui.screen_label_56, label_meter_buffer);
+                    }
+                }
+            }
+        }
+
         // Parse voltage_V -> L1
         char *voltage_v_start = strstr(payload_str, "\"voltage_V\":");
         if (voltage_v_start != NULL) {
@@ -1802,7 +1833,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         // Validate payload
         if (message->payloadlen <= 0 || message->payload == NULL) {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
             printf("ERROR: Empty payload\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
@@ -1821,7 +1852,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             // Try alternate formats
             connector_start = strstr(payload_str, "\"connector_type\" :");
             if (connector_start == NULL) {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+                UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
                 printf("ERROR: connector_type field not found in payload\n");
                 MQTTClient_freeMessage(&message);
                 MQTTClient_free(topic);
@@ -1834,7 +1865,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // Skip past "connector_type" and find the value
         char *value_start = strchr(connector_start, ':');
         if (value_start == NULL) {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
             printf("ERROR: No colon after connector_type\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
@@ -1849,7 +1880,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         }
         
         if (*value_start != '"') {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
             printf("ERROR: Expected quote after colon, got: '%c' (0x%02X)\n", *value_start, (unsigned char)*value_start);
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
@@ -1861,7 +1892,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // Find closing quote
         char *value_end = strchr(value_start, '"');
         if (value_end == NULL || (value_end - value_start) <= 0) {
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_56, label_sigboard_buffer, "Sigboard: NA");
+            UPDATE_LABEL_SAFE(guider_ui.screen_label_connector, label_connector_buffer, "Connector: NA");
             printf("ERROR: No closing quote found\n");
             MQTTClient_freeMessage(&message);
             MQTTClient_free(topic);
@@ -1881,41 +1912,41 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // Map connector type to display string
         if (strcasestr(connector_type, "IEC62196Type2Cable") != NULL || 
             strcasestr(connector_type, "Type2Cable") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type2 Cable");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: Type2 Cable");
             printf("Matched: Type2 Cable\n");
             
         } else if (strcasestr(connector_type, "IEC62196Type2Socket") != NULL || 
                    strcasestr(connector_type, "Type2Socket") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type2 Socket");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: Type2 Socket");
             printf("Matched: Type2 Socket\n");
             
         } else if (strcasestr(connector_type, "Type1") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: Type1");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: Type1");
             printf("Matched: Type1\n");
             
         } else if (strcasestr(connector_type, "CCS") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: CCS");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: CCS");
             printf("Matched: CCS\n");
             
         } else if (strcasestr(connector_type, "CHAdeMO") != NULL) {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: CHAdeMO");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: CHAdeMO");
             printf("Matched: CHAdeMO\n");
             
         } else if (strlen(connector_type) > 0) {
             // Unknown but valid connector - display raw value
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: %s", connector_type);
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: %s", connector_type);
             printf("Unknown connector, using raw value: %s\n", connector_type);
             
         } else {
-            snprintf(label_sigboard_buffer, sizeof(label_sigboard_buffer), "Sigboard: NA");
+            snprintf(label_connector_buffer, sizeof(label_connector_buffer), "Connector: NA");
             printf("Empty connector type\n");
         }
         
         // Update the label (FIXED - always use the buffer directly)
-        lv_label_set_text_static(guider_ui.screen_label_56, label_sigboard_buffer);
-        lv_obj_invalidate(guider_ui.screen_label_56);  // Force redraw
+        lv_label_set_text_static(guider_ui.screen_label_connector, label_connector_buffer);
+        lv_obj_invalidate(guider_ui.screen_label_connector);  // Force redraw
         
-        printf(">>> Sigboard label updated to: '%s' <<<\n", label_sigboard_buffer);
+        printf(">>> Connector label updated to: '%s' <<<\n", label_connector_buffer);
         printf("========================================\n\n");
     
     } else if (strcmp(topic, "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info") == 0 ) {
