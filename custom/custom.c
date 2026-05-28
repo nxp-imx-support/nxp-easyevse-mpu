@@ -159,16 +159,6 @@ static const float TARGET_SOC = 100.0f;
 // Flag to stop updates when battery reaches 100%
 static bool charging_complete = false;
 
-
-// ============================================
-// PENDING SESSION END (Minimal - Image + Popup only)
-// ============================================
-static bool pending_show_popup = false;
-static bool pending_change_image = false;
-static const lv_img_dsc_t *pending_image_src = NULL;
-static uint32_t pending_image_tick = 0;
-
-
 // ============================================
 // ESTIMATED TIME CALCULATION VARIABLE
 // ============================================
@@ -566,34 +556,6 @@ static void internet_check_timer_cb(lv_timer_t *timer) {
     }
 }
 
-// Timer callback for deferred image swap + popup (state label is handled by
-// ui_state's own apply timer; image/popup will move there in a later commit).
-static void state_update_timer_cb(lv_timer_t * timer)
-{
-    // ========== Handle pending background image change ==========
-    if (pending_change_image) {
-        if (pending_image_src != NULL) {
-            lv_img_set_src(guider_ui.screen_img_2, pending_image_src);
-            printf(">>> Background image changed (thread-safe) <<<\n");
-        }
-        pending_change_image = false;
-        pending_image_src = NULL;
-        pending_image_tick = lv_tick_get();  // Record when image was set
-    }
-
-    // ========== Handle pending popup display (after image settles) ==========
-    if (pending_show_popup) {
-        uint32_t elapsed = lv_tick_get() - pending_image_tick;
-        // Wait 150ms after image change before showing popup
-        if (elapsed >= 150) {
-            lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
-            printf(">>> Popup displayed (thread-safe, after image) <<<\n");
-            pending_show_popup = false;
-        }
-    }
-
-}
-
 void custom_init(lv_ui *ui)
 {
     /* Add your codes here */
@@ -605,15 +567,9 @@ void custom_init(lv_ui *ui)
 
   // ui_state owns the new UI apply timer (50 ms) and the mutex shared with
   // the Paho network thread. Subsequent commits migrate per-topic LVGL
-  // writes onto it; for now only the state label and the cont_4 overlay
-  // are routed through it.
+  // writes onto it; for now state label, cont_4 overlay and session_event
+  // lifecycle (image swap + popup) are routed through it.
   ui_state_init();
-
-  // Create state update timer (every 50ms) — still drives the deferred image
-  // swap and end-of-session popup; will be retired when those move to
-  // ui_state in a later commit.
-  lv_timer_t * state_timer = lv_timer_create(state_update_timer_cb, 50, NULL);
-
 
   // Show cont_4 overlay by default (waiting for EVerest/MQTT)
   ui_set_overlay_visible(true);
@@ -1160,7 +1116,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("=== SESSION EVENT: '%s' ===\n", event_value);
         //#########################################################################################
             if (strlen(event_value) > 0) {
-                UPDATE_LABEL_SAFE(guider_ui.screen_label_63, label_event_buffer, event_value);
+                ui_set_event(event_value);
             }
 
 
@@ -1195,16 +1151,14 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           
           // Skip if already processed to prevent duplicate processing
           if (session_end_processed) {
-
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
-              lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
+              ui_set_state("Unplugged", 0xdcd1e5);
+              ui_set_uid("UID: NA");
+              ui_set_card_type("Type: NA");
+              ui_set_auth_type("Auth: NA");
+              ui_set_card_status("Status: NA", 0xDCD1E5);
+              ui_set_direction("Direction: NA", NULL, false);
+              ui_set_ev_id("EV ID: NA");
+              ui_set_protocol("Protocol: NA");
               MQTTClient_freeMessage(&message);
               MQTTClient_free(topic);
               return 1;
@@ -1232,33 +1186,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           active_session = false;
           start_time_captured = false;  // Keep this here
           // pause_time_captured will be reset later
-          
-          lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
-        //   lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_0_alpha_1277x797);
-        //   replaced with below
-        // Queue image change for main thread (prevents glitch)
-        pending_image_src = &_Car_Unplugged_0_alpha_1277x797;
-        pending_change_image = true;
 
-          
-          // migrated_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_+_
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, "--:--:--");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, "Unplugged");
-          lv_obj_add_flag(guider_ui.screen_label_40, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_bar_2, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_img_19, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_label_19, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_flag(guider_ui.screen_label_38, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-          // Reset NFC Card UID and Type (always, regardless of session state)
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
-          lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-          UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
+          // Queue image change for main thread (prevents glitch)
+          ui_set_car_image(&_Car_Unplugged_0_alpha_1277x797);
+
+          // Bulk session-end reset (labels + visibility + sw_2) via ui_state
+          ui_session_reset();
           char string_time_out[20];
           char diff_time[20];
 
@@ -1296,15 +1229,13 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             snprintf(diff_time, sizeof(diff_time), "%02d:%02d:%02d", 
             diffTime.hours, diffTime.minutes, diffTime.seconds);
 
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_30, label_end_time_buffer, string_time_out);
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_31, label_duration_buffer, diff_time);
+            ui_set_end_time(string_time_out);
+            ui_set_duration_summary(diff_time);
           if (is_session_started){
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-            // lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
-            // replaced with below
-            // Queue popup display for main thread (after image settles)
+            // Queue popup display for main thread (after image settles, 150 ms)
             if (strcmp(event_value, "Enabled") != 0) {
-                pending_show_popup = true;
+                ui_request_popup();
             }
 
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -1312,21 +1243,19 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             totalKWattHr = 0.000;
             mqtt_power_kw = 0.0f;
             mqtt_energy_kwh = 0.0f;
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_38, label_battery_buffer, "00.0");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_19, label_battery_buffer, "00.0");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_3, label_energy_buffer, "0.000 kWh");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, "--:--:--");
-            lv_meter_set_indicator_value(guider_ui.screen_meter_1, guider_ui.screen_meter_1_scale_0_ndline_0, 0);
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_25, label_power_buffer, "0");
-            lv_bar_set_value(guider_ui.screen_bar_2, 20, LV_ANIM_OFF);
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_57, label_uid_buffer, "UID: NA");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_58, label_card_type_buffer, "Type: NA");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_62, label_auth_type_buffer, "Auth: NA");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_59, label_card_status_buffer, "Status: NA");
-            lv_obj_set_style_text_color(guider_ui.screen_label_59, lv_color_hex(0xDCD1E5), LV_PART_MAIN|LV_STATE_DEFAULT);
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_55, label_direction_buffer, "Direction: NA");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_44, label_ev_id_buffer, "EV ID: NA");
-            UPDATE_LABEL_SAFE(guider_ui.screen_label_53, label_protocol_buffer, "Protocol: NA");
+            // Bulk reset already applied above via ui_session_reset(); explicit
+            // resets retained for clarity of the per-field zeroing logic.
+            ui_set_battery_soc(0.0f);
+            ui_set_energy("0.000 kWh");
+            ui_set_duration("--:--:--");
+            ui_set_power_kw(0.0f);
+            ui_set_uid("UID: NA");
+            ui_set_card_type("Type: NA");
+            ui_set_auth_type("Auth: NA");
+            ui_set_card_status("Status: NA", 0xDCD1E5);
+            ui_set_direction("Direction: NA", NULL, false);
+            ui_set_ev_id("EV ID: NA");
+            ui_set_protocol("Protocol: NA");
 
             is_session_started = false;
             printf("Session values reset (is_session_started was true)\n");
@@ -1353,41 +1282,38 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       // Existing grouped condition (keep as is)
       if (
           strcmp(event_value, "SessionStarted") == 0 ||
-          strcmp(event_value, "AuthRequired") == 0 
+          strcmp(event_value, "AuthRequired") == 0
       ) {
           active_session = false;
-          lv_img_set_src(guider_ui.screen_img_2, &_Car_Unplugged_alpha_1280x800);
-
-        //   lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+          ui_set_car_image(&_Car_Unplugged_alpha_1280x800);
       }
 
       if (
           strcmp(event_value, "AuthRequired") == 0
       ) {
           active_session = false;
-          is_new_session = true;	
-          lv_obj_add_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+          is_new_session = true;
+          ui_hide_popup();
       }
       
       if (strcmp(event_value, "ChargingStarted") == 0) {
           active_session = true;
-          lv_img_set_src(guider_ui.screen_img_2, &_Car_plugged_alpha_1280x800);
-          // REMOVED: Duplicate label update - now handled in centralized state mapping above
-          
-          lv_obj_add_state(guider_ui.screen_sw_2, LV_STATE_CHECKED);
-          
+
+          ui_set_car_image(&_Car_plugged_alpha_1280x800);
+          ui_set_sw2_checked(true);
+
           if (!start_time_captured && is_session_started) {
               char string_time[20];
               set_screen_digital_clock_1();
               
               startTime.hours = atoi(hour);
               startTime.minutes = atoi(minutes);
-              startTime.seconds = atoi(seconds); 
+              startTime.seconds = atoi(seconds);
               startTime.ampm = (strcmp(am_pm, "AM") == 0) ? 'A' : 'P';
               
               snprintf(string_time, sizeof(string_time), "%s:%s:%s %s", hour, minutes, seconds, am_pm);
               
-              UPDATE_LABEL_SAFE(guider_ui.screen_label_10, label_time_buffer, string_time);
+              ui_set_start_time(string_time);
               start_time_captured = true;
           }
       }
