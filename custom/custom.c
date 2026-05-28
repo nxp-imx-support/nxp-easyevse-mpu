@@ -1015,10 +1015,36 @@ static void update_estimated_remaining_time(float remaining_energy_wh, float cur
     ui_set_eta(time_str);
 }
 
+// Convert an EVerest CamelCase token into spaced, human-readable text.
+static void format_label_text(const char *in, char *out, size_t out_size) {
+    if (in == NULL || out == NULL || out_size == 0) {
+        if (out && out_size) out[0] = '\0';
+        return;
+    }
+    size_t n = strlen(in);
+    size_t j = 0;
+    for (size_t i = 0; i < n && j < out_size - 1; i++) {
+        char c = in[i];
+        if (i > 0 && isupper((unsigned char)c)) {
+            char prev = in[i - 1];
+            char next = (i + 1 < n) ? in[i + 1] : '\0';
+            bool prev_lower = islower((unsigned char)prev) || isdigit((unsigned char)prev);
+            bool acronym_boundary = isupper((unsigned char)prev) && islower((unsigned char)next);
+            if ((prev_lower || acronym_boundary) && j < out_size - 1) {
+                out[j++] = ' ';
+            }
+        }
+        out[j++] = c;
+    }
+    out[j] = '\0';
+}
+
 // Thread-safe state label update — defers to ui_state apply timer.
 static void request_state_update(const char *state_text, uint32_t color) {
-    ui_set_state(state_text, color);
-    printf(">>> STATE UPDATE QUEUED: '%s' <<<\n", state_text);
+    char pretty[96];
+    format_label_text(state_text, pretty, sizeof(pretty));
+    ui_set_state(pretty, color);
+    printf(">>> STATE UPDATE QUEUED: '%s' (raw '%s') <<<\n", pretty, state_text);
 }
 
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message) {
@@ -1101,11 +1127,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             
             // Log parsed event
             printf("=== SESSION EVENT: '%s' ===\n", event_value);
-        //#########################################################################################
-            if (strlen(event_value) > 0) {
-                ui_set_event(event_value);
-            }
 
+            if (strlen(event_value) > 0) {
+                char pretty_event[96];
+                format_label_text(event_value, pretty_event, sizeof(pretty_event));
+                ui_set_event(pretty_event);
+            }
 
             // ============================================
             // CENTRALIZED STATE MAPPING
