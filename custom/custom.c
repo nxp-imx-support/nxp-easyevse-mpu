@@ -1546,22 +1546,22 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             char protocol_display[64];
             if (strcasecmp(protocol, "Unknown") == 0) {
                 snprintf(protocol_display, sizeof(protocol_display), "Protocol: Unknown");
-            } else if (strstr(protocol, "15118-2") != NULL ||
-                    strstr(protocol, "15118_2") != NULL ||
-                    strcasecmp(protocol, "ISO15118-2") == 0 ||
-                    strcasecmp(protocol, "ISO 15118-2") == 0) {
-                snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-2");
             } else if (strstr(protocol, "15118-20") != NULL ||
                     strstr(protocol, "15118_20") != NULL ||
                     strcasecmp(protocol, "ISO15118-20") == 0 ||
                     strcasecmp(protocol, "ISO 15118-20") == 0) {
                 snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-20");
+            } else if (strstr(protocol, "15118-2") != NULL ||
+                    strstr(protocol, "15118_2") != NULL ||
+                    strcasecmp(protocol, "ISO15118-2") == 0 ||
+                    strcasecmp(protocol, "ISO 15118-2") == 0) {
+                snprintf(protocol_display, sizeof(protocol_display), "Protocol: ISO 15118-2");
             } else if (strcasecmp(protocol, "IEC61851-1") == 0 ||
                     strcasecmp(protocol, "IEC 61851-1") == 0 ||
                     strcasecmp(protocol, "IEC61851") == 0 ||
                     strcasecmp(protocol, "Basic") == 0 ||
                     strstr(protocol, "61851") != NULL) {
-                snprintf(protocol_display, sizeof(protocol_display), "Protocol: Basic");
+                snprintf(protocol_display, sizeof(protocol_display), "Protocol: IEC 61851-1");
             } else if (strlen(protocol) > 0) {
                 // Display the raw protocol value if not empty and unknown
                 snprintf(protocol_display, sizeof(protocol_display), "Protocol: %s", protocol);
