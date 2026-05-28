@@ -140,6 +140,11 @@ static bool session_end_processed = false;
 static time_t last_mqtt_message_time = 0;
 static const int MQTT_TIMEOUT_SECONDS = 2;  // Show overlay if no MQTT for 2+ seconds
 
+// Set when the active session is exporting (V2G). EVerest has no discharge
+// events per spec — it reports "Charging*" states with a direction derived
+// from charged vs discharged energy — so we relabel the wording ourselves.
+static bool g_is_discharging = false;
+
 // ============================================
 // BATTERY LEVEL CALCULATION VARIABLES
 // ============================================
@@ -1039,10 +1044,42 @@ static void format_label_text(const char *in, char *out, size_t out_size) {
     out[j] = '\0';
 }
 
+// Replace every "Charging" token with "Discharging" (case-sensitive, so the
+// already-lowercase "charging" inside "Discharging" is never re-matched).
+static void apply_discharge_wording(const char *in, char *out, size_t out_size) {
+    const char *needle = "Charging";
+    const size_t nlen = 8;             // strlen("Charging")
+    const char *repl = "Discharging";
+    const size_t rlen = 11;            // strlen("Discharging")
+    size_t j = 0;
+    const char *p = in;
+    while (*p && j < out_size - 1) {
+        if (strncmp(p, needle, nlen) == 0) {
+            for (size_t k = 0; k < rlen && j < out_size - 1; k++) out[j++] = repl[k];
+            p += nlen;
+        } else {
+            out[j++] = *p++;
+        }
+    }
+    out[j] = '\0';
+}
+
+// CamelCase -> Title Case, with discharge relabeling applied first when the
+// session is exporting.
+static void format_state_or_event(const char *in, char *out, size_t out_size) {
+    if (g_is_discharging) {
+        char tmp[96];
+        apply_discharge_wording(in, tmp, sizeof(tmp));
+        format_label_text(tmp, out, out_size);
+    } else {
+        format_label_text(in, out, out_size);
+    }
+}
+
 // Thread-safe state label update — defers to ui_state apply timer.
 static void request_state_update(const char *state_text, uint32_t color) {
     char pretty[96];
-    format_label_text(state_text, pretty, sizeof(pretty));
+    format_state_or_event(state_text, pretty, sizeof(pretty));
     ui_set_state(pretty, color);
     printf(">>> STATE UPDATE QUEUED: '%s' (raw '%s') <<<\n", pretty, state_text);
 }
@@ -1130,7 +1167,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
             if (strlen(event_value) > 0) {
                 char pretty_event[96];
-                format_label_text(event_value, pretty_event, sizeof(pretty_event));
+                format_state_or_event(event_value, pretty_event, sizeof(pretty_event));
                 ui_set_event(pretty_event);
             }
 
@@ -1249,7 +1286,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             // Queue popup display for main thread (after image settles, 150 ms)
             if (strcmp(event_value, "Enabled") != 0) {
-                ui_request_popup();
+                ui_request_popup(g_is_discharging);
             }
 
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -1819,8 +1856,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         // Only update direction during active session - prevents overwriting "NA" after session ends.
         if (!session_end_processed && (has_energy || discharged_wh > 0)) {
             if (energy_wh > discharged_wh) {
+                g_is_discharging = false;
                 ui_set_direction("Direction: G2V", &_arrow_green_alpha_80x67, true);
             } else if (discharged_wh > energy_wh) {
+                g_is_discharging = true;
                 ui_set_direction("Direction: V2G", &_arrow_red_alpha_80x67, true);
 
                 // Display discharged energy (same format as charged energy)
@@ -1836,10 +1875,13 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                     }
                 }
             } else if (energy_wh == 0 && discharged_wh == 0) {
+                // Ambiguous (no flow yet): keep last known direction so the
+                // state wording doesn't flicker between Charging/Discharging.
                 ui_set_direction("Direction: NA", NULL, false);
             }
         } else {
-            // Outside an active session: keep arrow hidden.
+            // Outside an active session: reset to charging wording.
+            g_is_discharging = false;
             ui_set_direction("Direction: NA", NULL, false);
         }
 

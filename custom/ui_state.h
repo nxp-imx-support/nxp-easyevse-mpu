@@ -60,7 +60,7 @@ void ui_set_auth_type(const char *formatted);
 /* ===== Event / image / popup ========================================== */
 void ui_set_event(const char *text);
 void ui_set_car_image(const lv_img_dsc_t *src);
-void ui_request_popup(void);
+void ui_request_popup(bool discharging);
 void ui_hide_popup(void);
 void ui_dismiss_popup(void);
 

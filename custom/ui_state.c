@@ -104,6 +104,7 @@ typedef struct {
     bool popup_requested;
     bool popup_hide_requested;
     bool popup_dismissed;
+    bool popup_discharging;
 
     /* Active-session widget group */
     bool active_session_visible;
@@ -464,6 +465,14 @@ static void ui_apply_timer_cb(lv_timer_t *timer)
     if (snap.popup_requested && g_popup_visible_since == 0) {
         uint32_t elapsed = lv_tick_get() - g_last_image_apply_tick;
         if (elapsed >= 150) {
+            /* Swap the summary caption to match charge/discharge direction.
+             * The value fields (energy/start/end/duration) are separate
+             * labels, so the line layout is identical between variants. */
+            lv_label_set_text_static(
+                guider_ui.screen_label_14,
+                snap.popup_discharging
+                    ? "\n\nDischarging Session Completed!\n\nUsed Energy: \nStart Time: \nEnd Time: \nDischarge Time: "
+                    : "\n\nCharging Session Completed!\n\nUsed Energy: \nStart Time: \nEnd Time: \nCharge Time: ");
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
             g_popup_visible_since = lv_tick_get();
             if (g_popup_visible_since == 0) {
@@ -739,10 +748,11 @@ void ui_set_car_image(const lv_img_dsc_t *src)
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
-void ui_request_popup(void)
+void ui_request_popup(bool discharging)
 {
     pthread_mutex_lock(&g_ui_mutex);
     g_ui.popup_requested = true;
+    g_ui.popup_discharging = discharging;
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
