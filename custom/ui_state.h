@@ -62,6 +62,7 @@ void ui_set_event(const char *text);
 void ui_set_car_image(const lv_img_dsc_t *src);
 void ui_request_popup(void);
 void ui_hide_popup(void);
+void ui_dismiss_popup(void);
 
 /* ===== Misc ============================================================ */
 /* Bulk reset applied when a session ends */

@@ -103,6 +103,7 @@ typedef struct {
     /* End-of-session popup: deferred 150 ms after a fresh image swap. */
     bool popup_requested;
     bool popup_hide_requested;
+    bool popup_dismissed;
 
     /* Active-session widget group */
     bool active_session_visible;
@@ -441,12 +442,23 @@ static void ui_apply_timer_cb(lv_timer_t *timer)
 
     /* End-of-session popup arbitration.
      *
-     * Show first: ensures a popup that was requested gets at least one
-     * chance to appear, even if a hide-request arrived in the same window.
+     * Dismiss (user tapped the cross) takes absolute priority: hide now and
+     * clear every popup flag + the visibility tracker, so nothing re-shows it.
      *
-     * Hide second, gated by POPUP_MIN_VISIBLE_MS: once visible, the popup
-     * stays for the minimum readable duration before any hide takes effect.
+     * Otherwise: show first (a requested popup always gets one chance to
+     * appear), then hide, gated by POPUP_MIN_VISIBLE_MS once visible.
      */
+
+    if (snap.popup_dismissed) {
+        lv_obj_add_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+        g_popup_visible_since = 0;
+        pthread_mutex_lock(&g_ui_mutex);
+        g_ui.popup_dismissed = false;
+        g_ui.popup_requested = false;
+        g_ui.popup_hide_requested = false;
+        pthread_mutex_unlock(&g_ui_mutex);
+        return;
+    }
 
     /* Step 1: try to show, if not currently visible and defer-window passed. */
     if (snap.popup_requested && g_popup_visible_since == 0) {
@@ -744,6 +756,20 @@ void ui_hide_popup(void)
      * end-of-session summary just vanishes. The apply timer will show
      * the popup first, hold it for POPUP_MIN_VISIBLE_MS, then honor the
      * hide. */
+    pthread_mutex_unlock(&g_ui_mutex);
+}
+
+void ui_dismiss_popup(void)
+{
+    /* User explicitly tapped the cross. This is a hard close: cancel any
+     * pending/latched show request, cancel any deferred hide, and signal the
+     * apply timer to hide cont_3 and reset its visibility tracker. Without
+     * this, the cross handler's direct lv_obj_add_flag() left g_popup_*
+     * state stale and the apply timer could re-show the popup. */
+    pthread_mutex_lock(&g_ui_mutex);
+    g_ui.popup_dismissed = true;
+    g_ui.popup_requested = false;
+    g_ui.popup_hide_requested = false;
     pthread_mutex_unlock(&g_ui_mutex);
 }
 

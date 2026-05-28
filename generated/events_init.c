@@ -10,6 +10,7 @@
 #include "events_init.h"
 #include <stdio.h>
 #include "lvgl.h"
+#include "../custom/ui_state.h"
 
 #if LV_USE_FREEMASTER
 #include "freemaster_client.h"
@@ -41,7 +42,7 @@ static void screen_img_9_event_handler (lv_event_t *e)
 	switch (code) {
 	case LV_EVENT_CLICKED:
 	{
-		lv_obj_add_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+		ui_dismiss_popup();
 		break;
 	}
 	default:
