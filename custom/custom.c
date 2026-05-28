@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include "lvgl.h"
 #include "custom.h"
+#include "ui_state.h"
 #include <string.h>
 #include <unistd.h>
 #include "MQTTClient.h"
@@ -98,14 +99,6 @@ static void update_battery_display(float soc);
 
 // Estimated time calculation prototype (Feature 2)
 static void update_estimated_remaining_time(float remaining_energy_wh, float rate_wh_per_sec);
-
-// ============================================
-// PENDING STATE UPDATE (Thread-safe LVGL updates)
-// ============================================
-static bool pending_state_update = false;
-static char pending_state_text[64] = "";
-static uint32_t pending_state_color = 0xdcd1e5;
-
 
 /**********************
  *  STATIC VARIABLES
@@ -469,17 +462,17 @@ static void mqtt_watchdog_timer_cb(lv_timer_t * timer)
     time_t current_time = time(NULL);
     
     // If no MQTT message received for MQTT_TIMEOUT_SECONDS, show cont_4
-    if (last_mqtt_message_time > 0 && 
+    if (last_mqtt_message_time > 0 &&
         difftime(current_time, last_mqtt_message_time) > MQTT_TIMEOUT_SECONDS) {
-        
-        // Only show overlay if not already shown
-        if (!lv_obj_has_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN)) {
-            return;  // Already showing overlay
+
+        // Defer to LVGL thread via ui_state (idempotent — apply only paints
+        // the overlay if its dirty flag is set this tick).
+        ui_set_overlay_visible(true);
+        if (mqtt_connected) {
+            printf("MQTT timeout - showing cont_4 overlay (no messages for %d+ seconds)\n", MQTT_TIMEOUT_SECONDS);
         }
-        
-        lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
-        printf("MQTT timeout - showing cont_4 overlay (no messages for %d+ seconds)\n", MQTT_TIMEOUT_SECONDS);
-        mqtt_connected = false;  // Mark as disconnected
+
+        mqtt_connected = false;
     }
 }
 
@@ -497,8 +490,9 @@ void connectionLost(void *context, char *cause) {
     
     mqtt_connected = false;
     last_mqtt_message_time = 0;
-    
-    lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+
+    // Defer overlay display to LVGL thread via ui_state.
+    ui_set_overlay_visible(true);
     printf("Showing cont_4 overlay (connection lost)\n");
 }
 
@@ -572,20 +566,10 @@ static void internet_check_timer_cb(lv_timer_t *timer) {
     }
 }
 
-// Timer callback to apply pending state label update (runs in LVGL main thread)
+// Timer callback for deferred image swap + popup (state label is handled by
+// ui_state's own apply timer; image/popup will move there in a later commit).
 static void state_update_timer_cb(lv_timer_t * timer)
 {
-    if (pending_state_update) {
-        UPDATE_LABEL_SAFE(guider_ui.screen_label_1, label_state_buffer, pending_state_text);
-        lv_obj_set_style_text_color(guider_ui.screen_label_1, lv_color_hex(pending_state_color), LV_PART_MAIN|LV_STATE_DEFAULT);
-        lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
-        lv_obj_invalidate(guider_ui.screen_label_1);
-        
-        printf(">>> STATE APPLIED TO UI: '%s' <<<\n", pending_state_text);
-        
-        pending_state_update = false;
-    }
-
     // ========== Handle pending background image change ==========
     if (pending_change_image) {
         if (pending_image_src != NULL) {
@@ -619,12 +603,20 @@ void custom_init(lv_ui *ui)
   lv_timer_t * clock_timer = lv_timer_create(clock_update_timer_cb, 1000, NULL);
   lv_timer_t *internet_timer = lv_timer_create(internet_check_timer_cb, 30000, NULL);
 
-  // Create state update timer (every 50ms for responsive UI)
+  // ui_state owns the new UI apply timer (50 ms) and the mutex shared with
+  // the Paho network thread. Subsequent commits migrate per-topic LVGL
+  // writes onto it; for now only the state label and the cont_4 overlay
+  // are routed through it.
+  ui_state_init();
+
+  // Create state update timer (every 50ms) — still drives the deferred image
+  // swap and end-of-session popup; will be retired when those move to
+  // ui_state in a later commit.
   lv_timer_t * state_timer = lv_timer_create(state_update_timer_cb, 50, NULL);
 
 
   // Show cont_4 overlay by default (waiting for EVerest/MQTT)
-  lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+  ui_set_overlay_visible(true);
 
   // Create watchdog timer to check MQTT activity every 1 second
   lv_timer_t * mqtt_watchdog = lv_timer_create(mqtt_watchdog_timer_cb, 1000, NULL);
@@ -1080,13 +1072,9 @@ static void update_estimated_remaining_time(float remaining_energy_wh, float cur
     UPDATE_LABEL_SAFE(guider_ui.screen_label_11, label_duration_buffer, time_str);
 }
 
-// Thread-safe function to request state label update (called from MQTT thread)
+// Thread-safe state label update — defers to ui_state apply timer.
 static void request_state_update(const char *state_text, uint32_t color) {
-    strncpy(pending_state_text, state_text, sizeof(pending_state_text) - 1);
-    pending_state_text[sizeof(pending_state_text) - 1] = '\0';
-    pending_state_color = color;
-    pending_state_update = true;
-    
+    ui_set_state(state_text, color);
     printf(">>> STATE UPDATE QUEUED: '%s' <<<\n", state_text);
 }
 
@@ -1136,10 +1124,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
     // Update last message time
     last_mqtt_message_time = time(NULL);
-    
-    // Hide cont_4 when MQTT messages are coming (EVerest is running)
-    lv_obj_add_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
-    
+
+    // Hide cont_4 when MQTT messages are coming (EVerest is running).
+    // Deferred to LVGL thread via ui_state.
+    ui_set_overlay_visible(false);
+
     if (strcmp(topic,"everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event") == 0){
 
             char *payload_str = (char *)message->payload;
