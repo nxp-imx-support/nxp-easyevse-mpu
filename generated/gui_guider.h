@@ -86,6 +86,7 @@ typedef struct
 	lv_obj_t *screen_img_19;
 	lv_obj_t *screen_label_62;
 	lv_obj_t *screen_label_63;
+	lv_obj_t *screen_label_pause_resume;
 	lv_obj_t *screen_cont_3;
 	lv_obj_t *screen_label_14;
 	lv_obj_t *screen_img_9;
