@@ -2044,7 +2044,28 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         uint32_t status_color = 0xDCD1E5;
         char auth_display[64] = "Auth: NA";
 
-        // ---- UID ("value" field in id_token) ----
+        // Pre-parse the token type so the value block below can branch on it.
+        // PnC delivers id_token.value as an eMAID (alphanumeric, e.g.
+        // "FR8NXPE12ABC34F") rather than a hex tag UID, so the RFID branch
+        // would otherwise filter it down to nothing.
+        char token_type[32] = "";
+        {
+            char *t = strstr(payload_str, "\"type\":");
+            if (t != NULL) {
+                t += 7;
+                while (*t == ' ' || *t == '\t' || *t == '"') t++;
+                char *te = strchr(t, '"');
+                if (te != NULL && te > t) {
+                    int n = (te - t) < (int)sizeof(token_type) - 1
+                              ? (int)(te - t) : (int)sizeof(token_type) - 1;
+                    memcpy(token_type, t, n);
+                    token_type[n] = '\0';
+                }
+            }
+        }
+        const bool is_emaid = (strcasecmp(token_type, "eMAID") == 0);
+
+        // ---- UID / eMAID ("value" field in id_token) ----
         char *value_start = strstr(payload_str, "\"value\":");
         
         if (value_start != NULL) {
@@ -2062,27 +2083,45 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 strncpy(uid_raw, value_start, copy_len);
                 uid_raw[copy_len] = '\0';
 
-                // Keep only hex digits (uppercase)
-                char uid_clean[64] = {0};
-                int clean_idx = 0;
-                for (int i = 0; i < copy_len && clean_idx < 63; i++) {
-                    char c = uid_raw[i];
-                    if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-                        uid_clean[clean_idx++] = toupper(c);
+                if (is_emaid) {
+                    // PnC: display the eMAID as-is, sanitizing only
+                    // non-printable characters and shell-significant ones so
+                    // a malformed token can't break the label rendering.
+                    char clean[64] = {0};
+                    int j = 0;
+                    for (int i = 0; i < copy_len && j < 63; i++) {
+                        unsigned char c = (unsigned char)uid_raw[i];
+                        if (isprint(c) && c != '"' && c != '\\') {
+                            clean[j++] = (char)c;
+                        }
                     }
-                }
-                
-                int clean_len = strlen(uid_clean);
-                
-                if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
-                    char uid_formatted[32] = {0};
-                    int fmt_idx = 0;
-                    for (int i = 0; i < clean_len; i += 2) {
-                        if (i > 0) uid_formatted[fmt_idx++] = ':';
-                        uid_formatted[fmt_idx++] = uid_clean[i];
-                        uid_formatted[fmt_idx++] = uid_clean[i + 1];
+                    if (j > 0) {
+                        snprintf(uid_display, sizeof(uid_display), "eMAID: %s", clean);
                     }
-                    snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
+                } else {
+                    // RFID path: keep only hex digits (uppercase) and require
+                    // a known tag UID length (4/7/10 bytes = 8/14/20 hex chars).
+                    char uid_clean[64] = {0};
+                    int clean_idx = 0;
+                    for (int i = 0; i < copy_len && clean_idx < 63; i++) {
+                        char c = uid_raw[i];
+                        if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+                            uid_clean[clean_idx++] = toupper(c);
+                        }
+                    }
+
+                    int clean_len = strlen(uid_clean);
+
+                    if (clean_len == 8 || clean_len == 14 || clean_len == 20) {
+                        char uid_formatted[32] = {0};
+                        int fmt_idx = 0;
+                        for (int i = 0; i < clean_len; i += 2) {
+                            if (i > 0) uid_formatted[fmt_idx++] = ':';
+                            uid_formatted[fmt_idx++] = uid_clean[i];
+                            uid_formatted[fmt_idx++] = uid_clean[i + 1];
+                        }
+                        snprintf(uid_display, sizeof(uid_display), "UID: %s", uid_formatted);
+                    }
                 }
             }
         }
