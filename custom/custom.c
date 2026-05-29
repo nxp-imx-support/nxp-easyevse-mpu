@@ -1324,6 +1324,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
            * dismiss (if any) is cleared so the next end-event can show
            * the summary again. */
           ui_arm_popup();
+          g_is_discharging = false;
       }
 
       if (
