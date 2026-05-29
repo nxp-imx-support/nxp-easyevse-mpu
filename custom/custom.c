@@ -60,6 +60,26 @@ LV_IMG_DECLARE(_arrow_green_alpha_80x67);
  *  MQTT TOPICS ARRAY
  *********************/
 // Centralized MQTT topics - used for initial subscription and reconnection
+/*
+ * Internal EVerest module topics for ISO 15118-20 protocol data.
+ *
+ * Unlike the everest_api/.../e2m/* topics (which are a friendly bridge
+ * surface managed by evse_manager_consumer_API), the everest/modules/*
+ * namespace is EVerest's raw inter-module MQTT layer where every
+ * interface variable lands regardless of any API module wiring. The
+ * Evse15118D20 module publishes its protocol-decoded charging_needs and
+ * display_parameters here whether or not anyone listens.
+ *
+ * Caveat: these topic names are NOT part of EVerest's documented
+ * consumer API. They have been stable across recent versions, but
+ * a major EVerest upgrade may re-shape them. Centralising the strings
+ * here makes a future remap a one-line change.
+ */
+#define TOPIC_D20_CHARGING_NEEDS \
+    "everest/modules/Evse15118D200/impl/extensions/var/charging_needs"
+#define TOPIC_D20_DISPLAY_PARAMETERS \
+    "everest/modules/Evse15118D200/impl/charger/var/display_parameters"
+
 static const char* MQTT_TOPICS[] = {
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_event",
     "everest_api/ocpp/var/connection_status",
@@ -69,7 +89,12 @@ static const char* MQTT_TOPICS[] = {
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/powermeter",
     "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/hw_capabilities",
     "everest_api/1/auth_consumer/auth_api/e2m/token_validation_status",
-    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info" 
+    "everest_api/1/evse_manager_consumer/evse_manager_api/e2m/session_info",
+    /* ISO 15118-20 protocol-layer data. Read directly from the
+     * Evse15118D20 module instead of through the API bridge, because
+     * evse_manager_consumer_API does not (currently) surface these. */
+    TOPIC_D20_CHARGING_NEEDS,
+    TOPIC_D20_DISPLAY_PARAMETERS
 };
 
 static const int MQTT_TOPICS_COUNT = sizeof(MQTT_TOPICS) / sizeof(MQTT_TOPICS[0]);
@@ -152,6 +177,14 @@ static bool g_is_discharging = false;
 // Example: 555 Wh derived from user's test data (444 Wh = 80% remaining)
 static const float DEFAULT_BATTERY_CAPACITY_WH = 555.0f;
 static float battery_capacity_wh = 555.0f;  // Can be updated dynamically if needed
+
+/* When true, the ISO 15118-20 protocol layer is providing authoritative
+ * SoC via display_parameters.present_soc, so the energy-integration path
+ * in session_info should defer to it instead of computing its own value.
+ * Latched true on first display_parameters update with a sane present_soc.
+ * Reset to false at session start (SessionStarted / AuthRequired) so a
+ * subsequent ISO 15118-2 session reverts to the integration path. */
+static bool g_soc_source_protocol = false;
 
 // Current remaining energy from ev_info (updated on each MQTT message)
 static float initial_remaining_energy_wh = -1.0f;   // Captured at session start from ev_info
@@ -1325,6 +1358,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
            * the summary again. */
           ui_arm_popup();
           g_is_discharging = false;
+          g_soc_source_protocol = false;
       }
 
       if (
@@ -1909,7 +1943,12 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             }
 
             float current_soc = calculate_battery_soc(current_remaining_energy_wh);
-            if (current_soc >= 0) {
+            /* If the ISO 15118-20 protocol layer is supplying SoC directly
+             * via display_parameters, defer to it - it's the EV's own
+             * value, more accurate than our integration estimate, and
+             * fighting it would cause the SoC bar to flicker between
+             * the two sources. */
+            if (current_soc >= 0 && !g_soc_source_protocol) {
                 update_battery_display(current_soc);
 
                 // Charge-complete is meaningful in the G2V direction only.
@@ -2243,6 +2282,75 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
         ui_set_auth_type(auth_display);
 
+    } else if (strcmp(topic, TOPIC_D20_DISPLAY_PARAMETERS) == 0) {
+        /* ISO 15118-20 display_parameters: EV's own SoC and capacity,
+         * delivered via the protocol layer. When present, this is the
+         * authoritative source - far better than the energy-integration
+         * estimate the HMI computes for -2. Updates live throughout the
+         * session (observed ~once per AC charge loop iteration).
+         */
+        char *p = (char *)message->payload;
+        char *q;
+
+        if ((q = strstr(p, "\"present_soc\":")) != NULL) {
+            float soc = (float)atof(q + 14);
+            if (soc >= 0.0f && soc <= 100.0f) {
+                g_soc_source_protocol = true;
+                update_battery_display(soc);
+            }
+        }
+
+        if ((q = strstr(p, "\"battery_energy_capacity\":")) != NULL) {
+            float cap = (float)atof(q + 26);
+            if (cap > 0.0f) {
+                battery_capacity_wh = cap;
+            }
+        }
+
+        if ((q = strstr(p, "\"charging_complete\":")) != NULL) {
+            /* EV declares it is done. The existing session-end flow handles
+             * the actual session termination via EVerest events; this is
+             * just an early hint. Mark charging_complete so the integration
+             * path's own >=100% checks behave consistently if it ever runs. */
+            if (strncmp(q + 20, "true", 4) == 0) {
+                charging_complete = true;
+            }
+        }
+
+    } else if (strcmp(topic, TOPIC_D20_CHARGING_NEEDS) == 0) {
+        /* ISO 15118-20 charging_needs: one-shot at ScheduleExchange.
+         * Provides the EV's target energy declaration. For BPT sessions
+         * it lives under v2x_charging_parameters and is signed
+         * (negative = V2G); we take the magnitude for the energy budget.
+         *
+         * This is informational: display_parameters drives SoC display
+         * directly, so charging_needs is only useful to seed the
+         * integration path (kept as a -2 fallback). The fallback latched
+         * at first-flow in session_info still works if this never arrives.
+         */
+        char *p = (char *)message->payload;
+        char *q;
+
+        if ((q = strstr(p, "\"ev_target_energy_request\":")) != NULL) {
+            double target_wh = fabs(atof(q + 27));
+            if (target_wh > 0.0 && !initial_remaining_captured) {
+                initial_remaining_energy_wh = (float)target_wh;
+                current_remaining_energy_wh = (float)target_wh;
+                initial_remaining_captured  = true;
+                printf("=== charging_needs target: %.2f Wh (BPT) ===\n", target_wh);
+            }
+        } else if ((q = strstr(p, "\"energy_amount\":")) != NULL) {
+            /* G2V -20 Scheduled path: target sits in ac_charging_parameters
+             * (or dc_charging_parameters for DC) as energy_amount. Same
+             * semantics as -2's EAmount, no sign. */
+            double target_wh = atof(q + 16);
+            if (target_wh > 0.0 && !initial_remaining_captured) {
+                initial_remaining_energy_wh = (float)target_wh;
+                current_remaining_energy_wh = (float)target_wh;
+                initial_remaining_captured  = true;
+                printf("=== charging_needs target: %.2f Wh (G2V) ===\n", target_wh);
+            }
+        }
     } 
 
     MQTTClient_freeMessage(&message);
