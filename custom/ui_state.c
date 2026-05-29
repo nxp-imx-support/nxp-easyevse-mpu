@@ -103,8 +103,9 @@ typedef struct {
     /* End-of-session popup: deferred 150 ms after a fresh image swap. */
     bool popup_requested;
     bool popup_hide_requested;
-    bool popup_dismissed;
-    bool popup_discharging;
+    bool popup_dismissed;          /* user tapped the cross - force-hide, clear all */
+    bool popup_dismissed_sticky;   /* sticky: suppress re-show until next session */
+    bool popup_discharging;        /* caption: Discharging vs Charging session */
 
     /* Active-session widget group */
     bool active_session_visible;
@@ -751,8 +752,13 @@ void ui_set_car_image(const lv_img_dsc_t *src)
 void ui_request_popup(bool discharging)
 {
     pthread_mutex_lock(&g_ui_mutex);
-    g_ui.popup_requested = true;
-    g_ui.popup_discharging = discharging;
+    if (!g_ui.popup_dismissed_sticky) {
+        /* Sticky-dismissed: the user has already closed this session's popup.
+         * Ignore repeated session-end events that would otherwise re-show it.
+         * The next session arms ui_arm_popup() to clear the sticky flag. */
+        g_ui.popup_requested = true;
+        g_ui.popup_discharging = discharging;
+    }
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
@@ -773,13 +779,25 @@ void ui_dismiss_popup(void)
 {
     /* User explicitly tapped the cross. This is a hard close: cancel any
      * pending/latched show request, cancel any deferred hide, and signal the
-     * apply timer to hide cont_3 and reset its visibility tracker. Without
-     * this, the cross handler's direct lv_obj_add_flag() left g_popup_*
-     * state stale and the apply timer could re-show the popup. */
+     * apply timer to hide cont_3 and reset its visibility tracker. Also set
+     * the sticky flag so repeated session-end events don't re-show the
+     * popup later — only ui_arm_popup() (called on the next session start)
+     * clears it. */
     pthread_mutex_lock(&g_ui_mutex);
     g_ui.popup_dismissed = true;
+    g_ui.popup_dismissed_sticky = true;
     g_ui.popup_requested = false;
     g_ui.popup_hide_requested = false;
+    pthread_mutex_unlock(&g_ui_mutex);
+}
+
+void ui_arm_popup(void)
+{
+    /* Re-arm the popup for the next session. Call this on session start
+     * events (SessionStarted / AuthRequired). Clears the sticky dismiss
+     * flag so the end-of-session popup is allowed to appear again. */
+    pthread_mutex_lock(&g_ui_mutex);
+    g_ui.popup_dismissed_sticky = false;
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
@@ -863,4 +881,3 @@ void ui_state_init(void)
     /* 50 ms cadence: ~20 Hz, comfortably faster than human perception. */
     lv_timer_create(ui_apply_timer_cb, 50, NULL);
 }
-

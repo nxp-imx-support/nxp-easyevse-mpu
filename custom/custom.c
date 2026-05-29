@@ -662,6 +662,14 @@ void custom_init(lv_ui *ui)
 
   //   lv_obj_add_event_cb(ui->screen_slider_1, screen_slider_1_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
   lv_obj_add_event_cb(ui->screen_slider_2, screen_slider_2_event_custom_handler, LV_EVENT_VALUE_CHANGED, NULL);
+
+  /* Popup cross button: register a custom CLICKED handler so the close
+   * action survives any GUI Guider regeneration of events_init.c. LVGL
+   * supports multiple event callbacks on the same object; if the generated
+   * handler also fires (direct hide or anything else), both run and the end
+   * state is identical - hidden with ui_state bookkeeping cleared. */
+  lv_obj_add_event_cb(ui->screen_img_9, screen_img_9_dismiss_handler,
+                      LV_EVENT_CLICKED, NULL);
   
   //Write style for screen_bar_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
   lv_obj_set_style_bg_opa(ui->screen_bar_1, 100, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -1312,6 +1320,10 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
       ) {
           active_session = false;
           ui_set_car_image(&_Car_Unplugged_alpha_1280x800);
+          /* Re-arm the end-of-session popup: a previous session's sticky
+           * dismiss (if any) is cleared so the next end-event can show
+           * the summary again. */
+          ui_arm_popup();
       }
 
       if (
@@ -2518,4 +2530,13 @@ static void screen_sw_2_custom_event_custom_handler (lv_event_t *e)
 	default:
 		break;
 	}
+}
+
+/* Popup cross-button dismiss. Routes through ui_state so the apply timer's
+ * visibility tracker is reset and the sticky-dismiss flag is set, preventing
+ * a repeated session-end event from re-showing the popup. */
+static void screen_img_9_dismiss_handler (lv_event_t *e)
+{
+    (void)e;
+    ui_dismiss_popup();
 }

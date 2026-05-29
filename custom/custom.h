@@ -1,5 +1,5 @@
 /*
-* Copyright 2023-2025 NXP
+* Copyright 2023-2026 NXP
 * NXP Confidential and Proprietary. This software is owned or controlled by NXP and may only be used strictly in
 * accordance with the applicable license terms. By expressly accepting such terms or by downloading, installing,
 * activating and/or otherwise using the software, you are agreeing that you have read, and that you agree to
@@ -23,6 +23,7 @@ static void screen_slider_2_event_custom_handler (lv_event_t *e);
 static void screen_sw_2_custom_event_custom_handler (lv_event_t *e);
 static void screen_img_18_custom_event_custom_handler (lv_event_t *e);
 static void screen_img_19_custom_event_custom_handler (lv_event_t *e);
+static void screen_img_9_dismiss_handler (lv_event_t *e);
 void get_mqtt_state_for_evse();
 int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message *message);
 void set_max_temp();
