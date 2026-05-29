@@ -931,55 +931,30 @@ static void update_battery_display(float soc) {
     battery_level = soc;
 }
 
-// ============================================
-// ESTIMATED REMAINING TIME HELPER (Feature 2)
-// ============================================
-/**
- * Calculate and update estimated remaining charging time
- * 
- * Formula: remaining_time = remaining_energy / charging_rate
- * 
- * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
- * @param rate_wh_per_sec      Current charging rate (Wh per second)
- * 
- * Updates: label_11 (estimated time remaining display)
- * 
- * Examples:
- *   remaining=400 Wh, rate=0.5 Wh/s → 800 sec → 00:13:20
- *   remaining=200 Wh, rate=1.0 Wh/s → 200 sec → 00:03:20
- *   remaining=0 Wh                  → 00:00:00 (fully charged)
- */
-// ============================================
-// ESTIMATED REMAINING TIME HELPER (Feature 2)
-// ============================================
-/**
- * Calculate and update estimated remaining charging time
- * Uses Exponential Moving Average (EMA) to smooth rate fluctuations
- * 
- * Formula: smoothed_rate = alpha × current + (1-alpha) × previous
- * 
- * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
- * @param current_rate         Current instantaneous charging rate (Wh/s)
- * 
- * Updates: label_11 (estimated time remaining display)
- */
-// ============================================
-// ESTIMATED REMAINING TIME HELPER (Feature 2)
-// ============================================
-/**
- * Calculate and update estimated remaining charging time
- * Uses Exponential Moving Average (EMA) to smooth rate fluctuations
- * Rate limited to update display only once per second
- * 
- * @param remaining_energy_wh  Energy still needed to reach 100% (Wh)
- * @param current_rate         Current instantaneous charging rate (Wh/s)
- * 
- * Updates: label_11 (estimated time remaining display)
+// ESTIMATED REMAINING TIME HELPER
+ /**
+ * Calculate and display the estimated time until the battery reaches its
+ * current direction's target (full when charging, discharge floor when
+ * exporting). The function is direction-agnostic: it only sees a remaining
+ * energy gap and an absolute rate. The caller (session_info handler) picks
+ * the correct pair based on g_is_discharging.
+ *
+ * Formula:  time = remaining_to_target_wh / EMA(rate)
+ * EMA:      smoothed = alpha * current + (1 - alpha) * previous
+ *
+ * @param remaining_energy_wh  Energy still needed to reach the target (Wh).
+ *                             Charge:  energy still missing to reach full.
+ *                             V2G:     energy still in battery above the floor.
+ * @param current_rate         Instantaneous |rate| in Wh/s (always positive).
+ *
+ * Updates: label_11.
+ *  - remaining <= 0      -> "00:00:00" (target reached)
+ *  - rate < 0.001 Wh/s   -> "--:--:--" (not moving)
  */
 static void update_estimated_remaining_time(float remaining_energy_wh, float current_rate) {
     char time_str[20];
 
-    // Case 1: Fully charged
+    // Case 1: target reached (battery full for G2V, floor hit for V2G)
     if (remaining_energy_wh <= 0) {
         ui_set_eta("00:00:00");
         smoothed_charging_rate = 0.0f;
@@ -1505,8 +1480,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             // Parse the float value
             float remaining_energy = atof(remaining_field);
 
-            // Only capture if we haven't captured yet AND value is valid
-            if (!initial_remaining_captured && remaining_energy > 0) {
+            // Capture the EV's initial energy-to-full once per session. Accept
+            // 0 as a valid value: a V2G session starting from a full battery
+            // reports remaining_energy_needed == 0, and without this we'd
+            // never latch and the ETA/SoC blocks would stay skipped.
+            if (!initial_remaining_captured && remaining_energy >= 0) {
                 initial_remaining_energy_wh = remaining_energy;
                 current_remaining_energy_wh = remaining_energy;
                 initial_remaining_captured = true;
@@ -1905,18 +1883,24 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         }
 
         // ========== Calculate Battery SOC ==========
-        if (has_energy && initial_remaining_captured && initial_remaining_energy_wh > 0) {
-            current_remaining_energy_wh = initial_remaining_energy_wh - (float)energy_wh;
-            if (current_remaining_energy_wh < 0) {
-                current_remaining_energy_wh = 0;
+        // Net energy flow: charged in, discharged out. During V2G the EV
+        // exports, so current_remaining grows (battery emptying = more energy
+        // needed to reach full again).
+        if ((has_energy || discharged_wh > 0) && initial_remaining_captured && initial_remaining_energy_wh >= 0) {
+            current_remaining_energy_wh = initial_remaining_energy_wh
+                                        - (float)energy_wh
+                                        + (float)discharged_wh;
+            if (current_remaining_energy_wh < 0) current_remaining_energy_wh = 0;
+            if (current_remaining_energy_wh > battery_capacity_wh) {
+                current_remaining_energy_wh = battery_capacity_wh;
             }
 
             float current_soc = calculate_battery_soc(current_remaining_energy_wh);
             if (current_soc >= 0) {
                 update_battery_display(current_soc);
 
-                // Set flag when battery reaches 100%
-                if (current_soc >= 100.0f) {
+                // Charge-complete is meaningful in the G2V direction only.
+                if (!g_is_discharging && current_soc >= 100.0f) {
                     charging_complete = true;
                     printf("Battery fully charged - stopping energy updates\n");
                 }
@@ -1924,12 +1908,26 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         }
 
         // ========== Calculate Estimated Remaining Time ==========
-        if (has_energy && has_duration && duration_seconds > 0 && initial_remaining_captured) {
-            // Calculate instantaneous charging rate
-            charging_rate_wh_per_sec = (float)energy_wh / (float)duration_seconds;
-
-            // Update ETA with smoothed rate
-            update_estimated_remaining_time(current_remaining_energy_wh, charging_rate_wh_per_sec);
+        // Symmetric formula: ETA = remaining_to_target / rate.
+        //   G2V (charge):   target = full, remaining = energy still needed,
+        //                   rate   = charged_wh / duration.
+        //   V2G (discharge): target = discharge floor (0 = empty),
+        //                   remaining = energy currently in battery above floor,
+        //                   rate   = discharged_wh / duration.
+        // update_estimated_remaining_time() is itself direction-agnostic — it
+        // just smooths the rate and divides.
+        if (has_duration && duration_seconds > 0 && initial_remaining_captured) {
+            if (g_is_discharging && discharged_wh > 0) {
+                float discharge_rate = (float)discharged_wh / (float)duration_seconds;
+                float energy_in_battery = battery_capacity_wh - current_remaining_energy_wh;
+                const float discharge_floor_wh = 0.0f;  // empty target; configurable later
+                float remaining_to_floor = energy_in_battery - discharge_floor_wh;
+                charging_rate_wh_per_sec = discharge_rate;
+                update_estimated_remaining_time(remaining_to_floor, discharge_rate);
+            } else if (has_energy) {
+                charging_rate_wh_per_sec = (float)energy_wh / (float)duration_seconds;
+                update_estimated_remaining_time(current_remaining_energy_wh, charging_rate_wh_per_sec);
+            }
         }
 
         // ========== Parse state for UI display ==========
