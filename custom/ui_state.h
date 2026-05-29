@@ -51,6 +51,10 @@ void ui_set_eta(const char *text);
 void ui_set_battery_soc(float soc);
 void ui_set_power_kw(float kw);
 
+/* ===== ISO 15118-20 SoC progress bar =================================  */
+void ui_set_soc_bar(float present_soc, float target_soc);
+void ui_clear_soc_bar(void);
+
 /* ===== NFC / Auth ===================================================== */
 void ui_set_uid(const char *formatted);
 void ui_set_card_type(const char *formatted);

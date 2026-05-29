@@ -1359,6 +1359,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           ui_arm_popup();
           g_is_discharging = false;
           g_soc_source_protocol = false;
+          ui_clear_soc_bar();
       }
 
       if (
@@ -2291,12 +2292,22 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
          */
         char *p = (char *)message->payload;
         char *q;
+        float present_soc = -1.0f;
+        float target_soc  = -1.0f;
 
         if ((q = strstr(p, "\"present_soc\":")) != NULL) {
             float soc = (float)atof(q + 14);
             if (soc >= 0.0f && soc <= 100.0f) {
+                present_soc = soc;
                 g_soc_source_protocol = true;
                 update_battery_display(soc);
+            }
+        }
+
+        if ((q = strstr(p, "\"target_soc\":")) != NULL) {
+            float t = (float)atof(q + 13);
+            if (t > 0.0f && t <= 100.0f) {
+                target_soc = t;
             }
         }
 
@@ -2315,6 +2326,13 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             if (strncmp(q + 20, "true", 4) == 0) {
                 charging_complete = true;
             }
+        }
+
+        /* Push to the -20-only SoC progress bar. Visible only once
+         * present_soc has been seen; target tick auto-hides when no
+         * valid target_soc was supplied. */
+        if (present_soc >= 0.0f) {
+            ui_set_soc_bar(present_soc, target_soc);
         }
 
     } else if (strcmp(topic, TOPIC_D20_CHARGING_NEEDS) == 0) {

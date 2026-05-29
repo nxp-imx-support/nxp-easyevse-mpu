@@ -97,6 +97,12 @@ typedef struct
 	lv_obj_t *screen_label_13;
 	lv_obj_t *screen_cont_4;
 	lv_obj_t *screen_label_50;
+	/* SoC progress bar group */
+	lv_obj_t *screen_cont_soc;
+	lv_obj_t *screen_bar_soc;
+	lv_obj_t *screen_label_soc_current;
+	lv_obj_t *screen_label_soc_target;
+	lv_obj_t *screen_tick_soc_target;
 }lv_ui;
 
 typedef void (*ui_setup_scr_t)(lv_ui * ui);

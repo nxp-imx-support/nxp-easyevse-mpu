@@ -81,6 +81,12 @@ typedef struct {
     float power_kw;
     bool  power_dirty;
 
+    /* ISO 15118-20 SoC progress bar  */
+    float soc_bar_present;
+    float soc_bar_target;
+    bool  soc_bar_visible;
+    bool  soc_bar_dirty;
+
     /* NFC / Auth */
     char uid_text[64];
     bool uid_dirty;
@@ -163,6 +169,7 @@ static void clear_dirty_flags_locked(void)
     g_ui.eta_dirty                         = false;
     g_ui.battery_dirty                     = false;
     g_ui.power_dirty                       = false;
+    g_ui.soc_bar_dirty                     = false;
     g_ui.uid_dirty                         = false;
     g_ui.card_type_dirty                   = false;
     g_ui.card_status_dirty                 = false;
@@ -362,6 +369,44 @@ static void apply_snapshot(const ui_state_t *s)
         lv_meter_set_indicator_value(guider_ui.screen_meter_1,
                                      guider_ui.screen_meter_1_scale_0_ndline_0,
                                      (int)kw);
+    }
+
+    if (s->soc_bar_dirty) {
+        if (s->soc_bar_visible && s->soc_bar_present >= 0.0f) {
+            /* Show the container and update the bar's present value. */
+            lv_obj_clear_flag(guider_ui.screen_cont_soc, LV_OBJ_FLAG_HIDDEN);
+
+            float present = s->soc_bar_present;
+            if (present < 0)   present = 0;
+            if (present > 100) present = 100;
+            lv_bar_set_value(guider_ui.screen_bar_soc,
+                             (int)(present + 0.5f), LV_ANIM_ON);
+
+            char soc_buf[16];
+            snprintf(soc_buf, sizeof(soc_buf), "%.0f%%", present);
+            lv_label_set_text(guider_ui.screen_label_soc_current, soc_buf);
+
+            /* Target tick + label: only shown when a sane target was given. */
+            if (s->soc_bar_target > 0.0f && s->soc_bar_target <= 100.0f) {
+                /* Bar geometry: pos (10, 14), width 460, inside container.
+                 * Tick is 3px wide; place its left edge at the target fraction
+                 * of the bar width, then nudge -1 so the tick straddles the
+                 * boundary rather than sitting wholly to one side of it. */
+                int tick_x = 10 + (int)((460.0f * s->soc_bar_target / 100.0f) + 0.5f) - 1;
+                lv_obj_set_x(guider_ui.screen_tick_soc_target, tick_x);
+                lv_obj_clear_flag(guider_ui.screen_tick_soc_target, LV_OBJ_FLAG_HIDDEN);
+
+                char tgt_buf[16];
+                snprintf(tgt_buf, sizeof(tgt_buf), "-> %.0f%%", s->soc_bar_target);
+                lv_label_set_text(guider_ui.screen_label_soc_target, tgt_buf);
+                lv_obj_clear_flag(guider_ui.screen_label_soc_target, LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_add_flag(guider_ui.screen_tick_soc_target, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(guider_ui.screen_label_soc_target, LV_OBJ_FLAG_HIDDEN);
+            }
+        } else {
+            lv_obj_add_flag(guider_ui.screen_cont_soc, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     if (s->uid_dirty) {
@@ -652,6 +697,26 @@ void ui_set_energy(const char *text)
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
+void ui_set_soc_bar(float present_soc, float target_soc)
+{
+    pthread_mutex_lock(&g_ui_mutex);
+    g_ui.soc_bar_present = present_soc;
+    g_ui.soc_bar_target  = target_soc;
+    g_ui.soc_bar_visible = true;
+    g_ui.soc_bar_dirty   = true;
+    pthread_mutex_unlock(&g_ui_mutex);
+}
+
+void ui_clear_soc_bar(void)
+{
+    pthread_mutex_lock(&g_ui_mutex);
+    g_ui.soc_bar_present = -1.0f;
+    g_ui.soc_bar_target  = -1.0f;
+    g_ui.soc_bar_visible = false;
+    g_ui.soc_bar_dirty   = true;
+    pthread_mutex_unlock(&g_ui_mutex);
+}
+
 void ui_set_energy_summary(const char *text)
 {
     pthread_mutex_lock(&g_ui_mutex);
@@ -841,6 +906,13 @@ void ui_session_reset(void)
 
     g_ui.battery_soc = 0.0f;                                 g_ui.battery_dirty = true;
     g_ui.power_kw    = 0.0f;                                 g_ui.power_dirty   = true;
+
+    /* ISO 15118-20 SoC bar: stays hidden by default. The display_parameters
+     * topic re-shows it for the next -20 session. */
+    g_ui.soc_bar_present = -1.0f;
+    g_ui.soc_bar_target  = -1.0f;
+    g_ui.soc_bar_visible = false;
+    g_ui.soc_bar_dirty   = true;
 
     g_ui.active_session_visible = false;
     g_ui.active_session_visibility_dirty = true;

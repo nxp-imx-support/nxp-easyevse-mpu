@@ -1685,8 +1685,108 @@ void setup_scr_screen(lv_ui *ui)
 	lv_obj_set_style_pad_left(ui->screen_label_50, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 	lv_obj_set_style_shadow_width(ui->screen_label_50, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
+	//============================================================================
+	// SoC progress bar group (ISO 15118-20)
+	//============================================================================
+
+	//Container (transparent, no border) -----------------------------------------
+	ui->screen_cont_soc = lv_obj_create(ui->screen_cont_1);
+	lv_obj_set_pos(ui->screen_cont_soc, 350, 240);
+	lv_obj_set_size(ui->screen_cont_soc, 480, 80);
+	lv_obj_clear_flag(ui->screen_cont_soc, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_clear_flag(ui->screen_cont_soc, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_flag(ui->screen_cont_soc, LV_OBJ_FLAG_HIDDEN);
+
+	lv_obj_set_style_bg_opa(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_border_width(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_cont_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Bar -----------------------------------------------------------------------
+	ui->screen_bar_soc = lv_bar_create(ui->screen_cont_soc);
+	lv_obj_set_style_anim_time(ui->screen_bar_soc, 500, 0);
+	lv_bar_set_mode(ui->screen_bar_soc, LV_BAR_MODE_NORMAL);
+	lv_bar_set_range(ui->screen_bar_soc, 0, 100);
+	lv_bar_set_value(ui->screen_bar_soc, 0, LV_ANIM_OFF);
+	lv_obj_set_pos(ui->screen_bar_soc, 10, 14);
+	lv_obj_set_size(ui->screen_bar_soc, 460, 20);
+
+	//Bar track (LV_PART_MAIN) style: matches screen_bar_2 for visual consistency
+	lv_obj_set_style_bg_opa(ui->screen_bar_soc, 44, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_color(ui->screen_bar_soc, lv_color_hex(0x868487), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_grad_dir(ui->screen_bar_soc, LV_GRAD_DIR_NONE, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_bar_soc, 10, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_bar_soc, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Bar fill (LV_PART_INDICATOR) style: same violet as screen_bar_2
+	lv_obj_set_style_bg_opa(ui->screen_bar_soc, 200, LV_PART_INDICATOR|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_color(ui->screen_bar_soc, lv_color_hex(0x7b0bbb), LV_PART_INDICATOR|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_grad_dir(ui->screen_bar_soc, LV_GRAD_DIR_NONE, LV_PART_INDICATOR|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_bar_soc, 10, LV_PART_INDICATOR|LV_STATE_DEFAULT);
+
+	//Target tick (thin vertical line overlaid on the bar; x set at runtime) ----
+	ui->screen_tick_soc_target = lv_obj_create(ui->screen_cont_soc);
+	lv_obj_set_pos(ui->screen_tick_soc_target, 10, 8);  // x is updated dynamically
+	lv_obj_set_size(ui->screen_tick_soc_target, 3, 32);
+	lv_obj_clear_flag(ui->screen_tick_soc_target, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_clear_flag(ui->screen_tick_soc_target, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_flag(ui->screen_tick_soc_target, LV_OBJ_FLAG_HIDDEN);
+	lv_obj_set_style_bg_opa(ui->screen_tick_soc_target, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_color(ui->screen_tick_soc_target, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_border_width(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_tick_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Current SoC label (left, at fill end) ------------------------------------
+	ui->screen_label_soc_current = lv_label_create(ui->screen_cont_soc);
+	lv_label_set_text(ui->screen_label_soc_current, "0%");
+	lv_label_set_long_mode(ui->screen_label_soc_current, LV_LABEL_LONG_WRAP);
+	lv_obj_set_pos(ui->screen_label_soc_current, 10, 44);
+	lv_obj_set_size(ui->screen_label_soc_current, 120, 24);
+	lv_obj_clear_flag(ui->screen_label_soc_current, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_set_style_border_width(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(ui->screen_label_soc_current, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(ui->screen_label_soc_current, &lv_font_arial_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_opa(ui->screen_label_soc_current, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_soc_current, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_opa(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_label_soc_current, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+	//Target SoC label (right, dim) --------------------------------------------
+	ui->screen_label_soc_target = lv_label_create(ui->screen_cont_soc);
+	lv_label_set_text(ui->screen_label_soc_target, "");
+	lv_label_set_long_mode(ui->screen_label_soc_target, LV_LABEL_LONG_WRAP);
+	lv_obj_set_pos(ui->screen_label_soc_target, 350, 44);
+	lv_obj_set_size(ui->screen_label_soc_target, 120, 24);
+	lv_obj_clear_flag(ui->screen_label_soc_target, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_flag(ui->screen_label_soc_target, LV_OBJ_FLAG_HIDDEN);
+	lv_obj_set_style_border_width(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_radius(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_color(ui->screen_label_soc_target, lv_color_hex(0xdcd1e5), LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(ui->screen_label_soc_target, &lv_font_arial_18, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_opa(ui->screen_label_soc_target, 180, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_text_align(ui->screen_label_soc_target, LV_TEXT_ALIGN_RIGHT, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_opa(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_top(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_right(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_bottom(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_pad_left(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+	lv_obj_set_style_shadow_width(ui->screen_label_soc_target, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
 	//The custom code of screen.
-	
 
 	//Update current screen layout.
 	lv_obj_update_layout(ui->screen);
