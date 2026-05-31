@@ -610,6 +610,14 @@ void custom_init(lv_ui *ui)
    */
   ui_state_init();
 
+  /* Make the "Charger Not Operational" overlay and the end-of-session
+   * popup true modal surfaces.
+   */
+  lv_obj_set_parent(guider_ui.screen_cont_4, lv_layer_top());
+  lv_obj_set_style_bg_opa(guider_ui.screen_cont_4, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_parent(guider_ui.screen_cont_3, lv_layer_top());
+  lv_obj_set_style_bg_opa(guider_ui.screen_cont_3, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
   get_mqtt_state_for_evse();
   set_screen_digital_clock_1();
 
