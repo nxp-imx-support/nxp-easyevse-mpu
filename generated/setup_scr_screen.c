@@ -1364,7 +1364,7 @@ void setup_scr_screen(lv_ui *ui)
 	ui->screen_label_60 = lv_label_create(ui->screen_cont_1);
 	lv_label_set_text(ui->screen_label_60, "13 A");
 	lv_label_set_long_mode(ui->screen_label_60, LV_LABEL_LONG_WRAP);
-	lv_obj_set_pos(ui->screen_label_60, 102, 751);
+	lv_obj_set_pos(ui->screen_label_60, 155, 751);
 	lv_obj_set_size(ui->screen_label_60, 135, 27);
 
 	//Write style for screen_label_60, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -1385,10 +1385,10 @@ void setup_scr_screen(lv_ui *ui)
 
 	//Write codes screen_label_61
 	ui->screen_label_61 = lv_label_create(ui->screen_cont_1);
-	lv_label_set_text(ui->screen_label_61, "MAX:");
+	lv_label_set_text(ui->screen_label_61, "Current:");
 	lv_label_set_long_mode(ui->screen_label_61, LV_LABEL_LONG_WRAP);
 	lv_obj_set_pos(ui->screen_label_61, 17, 751);
-	lv_obj_set_size(ui->screen_label_61, 83, 27);
+	lv_obj_set_size(ui->screen_label_61, 150, 27);
 
 	//Write style for screen_label_61, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
 	lv_obj_set_style_bg_opa(ui->screen_label_61, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
