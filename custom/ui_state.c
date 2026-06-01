@@ -237,6 +237,13 @@ static void apply_snapshot(const ui_state_t *s)
     if (s->overlay_dirty) {
         if (s->overlay_visible) {
             lv_obj_clear_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
+            /* Both the operational overlay (cont_4) and the session summary
+             * popup (cont_3) live on lv_layer_top(). Keep the popup in front
+             * whenever it is already visible, otherwise an MQTT timeout can
+             * briefly cover it and look like popup flicker. */
+            if (g_popup_visible_since != 0) {
+                lv_obj_move_foreground(guider_ui.screen_cont_3);
+            }
         } else {
             lv_obj_add_flag(guider_ui.screen_cont_4, LV_OBJ_FLAG_HIDDEN);
         }
@@ -520,6 +527,7 @@ static void ui_apply_timer_cb(lv_timer_t *timer)
                     ? "\n\nDischarging Session Completed!\n\nUsed Energy: \nStart Time: \nEnd Time: \nDischarge Time: "
                     : "\n\nCharging Session Completed!\n\nUsed Energy: \nStart Time: \nEnd Time: \nCharge Time: ");
             lv_obj_clear_flag(guider_ui.screen_cont_3, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(guider_ui.screen_cont_3);
             g_popup_visible_since = lv_tick_get();
             if (g_popup_visible_since == 0) {
                 g_popup_visible_since = 1;  /* reserve 0 = "not visible" */
@@ -584,8 +592,11 @@ void ui_set_csms_connected(int tri_state)
 void ui_set_overlay_visible(bool visible)
 {
     pthread_mutex_lock(&g_ui_mutex);
-    g_ui.overlay_visible = visible;
-    g_ui.overlay_dirty = true;
+    if (g_ui.overlay_visible != visible) {
+        g_ui.overlay_visible = visible;
+        g_ui.overlay_dirty = true;
+    }
+
     pthread_mutex_unlock(&g_ui_mutex);
 }
 
