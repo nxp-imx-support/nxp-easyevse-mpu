@@ -163,7 +163,9 @@ static bool session_end_processed = false;
 
 // Add these global variables at the top
 static time_t last_mqtt_message_time = 0;
-static const int MQTT_TIMEOUT_SECONDS = 2;  // Show overlay if no MQTT for 2+ seconds
+static const int MQTT_TIMEOUT_SECONDS = 5;  // Show overlay if no MQTT for 5+ seconds
+static const int MQTT_WATCHDOG_MISS_THRESHOLD = 3;
+static int mqtt_watchdog_missed_ticks = 0;
 
 // Set when the active session is exporting (V2G). EVerest has no discharge
 // events per spec — it reports "Charging*" states with a direction derived
@@ -488,19 +490,30 @@ void get_network_type(const char *interface_name, char *type_buffer, size_t buff
 static void mqtt_watchdog_timer_cb(lv_timer_t * timer)
 {
     time_t current_time = time(NULL);
-    
-    // If no MQTT message received for MQTT_TIMEOUT_SECONDS, show cont_4
-    if (last_mqtt_message_time > 0 &&
-        difftime(current_time, last_mqtt_message_time) > MQTT_TIMEOUT_SECONDS) {
 
-        // Defer to LVGL thread via ui_state (idempotent — apply only paints
-        // the overlay if its dirty flag is set this tick).
-        ui_set_overlay_visible(true);
-        if (mqtt_connected) {
-            printf("MQTT timeout - showing cont_4 overlay (no messages for %d+ seconds)\n", MQTT_TIMEOUT_SECONDS);
+    if (last_mqtt_message_time == 0) {
+        mqtt_watchdog_missed_ticks = 0;
+        return;
+    }
+
+    // If no MQTT message is received for several watchdog cycles, show cont_4.
+    // The miss counter avoids a visible overlay blink on short MQTT scheduling
+    // gaps while the end-of-session popup is being displayed.
+    if (difftime(current_time, last_mqtt_message_time) > MQTT_TIMEOUT_SECONDS) {
+        mqtt_watchdog_missed_ticks++;
+
+        if (mqtt_watchdog_missed_ticks >= MQTT_WATCHDOG_MISS_THRESHOLD) {
+            // Defer to LVGL thread via ui_state.
+            ui_set_overlay_visible(true);
+            if (mqtt_connected) {
+                printf("MQTT timeout - showing cont_4 overlay (no messages for %d+ seconds)\n",
+                       MQTT_TIMEOUT_SECONDS);
+            }
+
+            mqtt_connected = false;
         }
-
-        mqtt_connected = false;
+    } else {
+        mqtt_watchdog_missed_ticks = 0;
     }
 }
 
@@ -518,6 +531,7 @@ void connectionLost(void *context, char *cause) {
     
     mqtt_connected = false;
     last_mqtt_message_time = 0;
+    mqtt_watchdog_missed_ticks = 0;
 
     // Defer overlay display to LVGL thread via ui_state.
     ui_set_overlay_visible(true);
@@ -544,6 +558,7 @@ static void mqtt_reconnect_timer_cb(lv_timer_t * timer)
             mqtt_reconnection_count++;
             printf("✓ MQTT reconnected successfully! (reconnection #%lu)\n", mqtt_reconnection_count);
             mqtt_connected = true;
+            mqtt_watchdog_missed_ticks = 0;
             reconnect_attempts = 0;
             
             printf("Ensuring clean subscription state...\n");
@@ -1154,6 +1169,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
     // Update last message time
     last_mqtt_message_time = time(NULL);
+    mqtt_watchdog_missed_ticks = 0;
 
     // Hide cont_4 when MQTT messages are coming (EVerest is running).
     // Deferred to LVGL thread via ui_state.
@@ -2469,7 +2485,7 @@ void get_mqtt_state_for_evse()
   } else {
       printf("Connected to MQTT broker ...\n");
       mqtt_connected = true;
-     // lv_label_set_text(guider_ui.pageStatic_label_1, "");
+      mqtt_watchdog_missed_ticks = 0;
   }
     // Topics are defined in MQTT_TOPICS array at the top of the file
     subscribe_to_mqtt_topics();
