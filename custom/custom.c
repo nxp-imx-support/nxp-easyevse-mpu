@@ -2651,7 +2651,7 @@ static void screen_sw_1_event_custom_handler (lv_event_t *e)
 		switch(status) {
 		case 0:
 		{
-			// lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_arial_30, 0);
+			// lv_obj_set_style_text_font(guider_ui.screen_label_1, &lv_font_montserratMedium_30, 0);
 
             // MQTTClient_message pubmsg = MQTTClient_message_initializer;
             // unplug();

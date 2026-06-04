@@ -9,7 +9,7 @@
 /*******************************************************************************
  * Size: 16 px
  * Bpp: 4
- * Opts: --enable-crashpad --crashpad-handler-pid=926406 --enable-crash-reporter=3552b632-af5a-44db-9c84-0b02a23f9a95,no_channel --user-data-dir=/home/lalit/.config/gui-guider --app-path=/opt/Gui-Guider/resources/app.asar --no-sandbox --no-zygote --disable-gpu-compositing --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=6 --time-ticks-at-unix-epoch=-1775143398836582 --launch-time-ticks=3960356134434 --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,10396862495416920662,18431983892803156631,131072 --disable-features=SpareRendererForSitePerProcess --enable-crashpad
+ * Opts: --enable-crashpad --crashpad-handler-pid=37492 --enable-crash-reporter=3552b632-af5a-44db-9c84-0b02a23f9a95,no_channel --user-data-dir=/home/lalit/.config/gui-guider --app-path=/opt/Gui-Guider/resources/app.asar --no-sandbox --no-zygote --disable-gpu-compositing --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=6 --time-ticks-at-unix-epoch=-1780549563398904 --launch-time-ticks=38766235136 --shared-files=v8_context_snapshot_data:100 --field-trial-handle=0,i,5135783193401931253,3988018696845411953,131072 --disable-features=SpareRendererForSitePerProcess --enable-crashpad
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
