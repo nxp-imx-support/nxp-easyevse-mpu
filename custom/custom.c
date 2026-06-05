@@ -350,73 +350,85 @@ static void clock_update_timer_cb(lv_timer_t * timer)
     }
 }
 
-// Function to get machine IP address from eth1, fallback to other interfaces
+// Active-interface selection policy for this platform:
+//   1. eth1  - primary wired uplink (the EVSE's main NIC)
+//   2. mlan0 - Wi-Fi station
+//   3. wfd0  - Wi-Fi Direct
+// Everything else (eth0, seth0, lo, ...) is deliberately ignored. eth0 in
+// particular always carries a link-local 169.254.x.x (APIPA) address, which the
+// previous "first non-lo interface with an IPv4" fallback would wrongly select
+// whenever eth1 had no lease - pinning the UI to eth0 and reporting "Wired"
+// even when the real connection is Wi-Fi. The type is decided by interface name
+// (eth1 = Wired, mlan0/wfd0 = Wi-Fi) rather than by probing /sys/.../wireless,
+// because the NXP/Marvell Wi-Fi driver does not reliably expose that node.
+static const struct {
+    const char *name;
+    const char *type;
+} k_iface_priority[] = {
+    { "eth1",  "Wired" },
+    { "mlan0", "Wi-Fi" },
+    { "wfd0",  "Wi-Fi" },
+};
+#define IFACE_PRIORITY_COUNT \
+    (sizeof(k_iface_priority) / sizeof(k_iface_priority[0]))
+
+// Map an interface name to its connectivity type using the priority table.
+// Returns "Unknown" for "none" / anything not in the table.
+static const char *iface_name_to_type(const char *interface_name) {
+    if (interface_name != NULL) {
+        for (size_t i = 0; i < IFACE_PRIORITY_COUNT; i++) {
+            if (strcmp(interface_name, k_iface_priority[i].name) == 0) {
+                return k_iface_priority[i].type;
+            }
+        }
+    }
+    return "Unknown";
+}
+
+// Function to get machine IP address, honoring the eth1 -> mlan0 -> wfd0
+// priority. An interface qualifies only when it is UP, RUNNING (carrier/link
+// up - so an associated-but-idle Wi-Fi radio is skipped) and has an IPv4
+// address. interface_name is set to the chosen name (e.g. "eth1"/"mlan0") or
+// "none" if no listed interface is connected.
 void get_machine_ip(char *ip_buffer, size_t buffer_size, char *interface_name, size_t iface_size) {
     struct ifaddrs *ifaddr, *ifa;
-    int family;
-    char temp_ip[16];
-    bool ip_found = false;
-    
+    char temp_ip[INET_ADDRSTRLEN];
+
     // Default values if IP not found
     snprintf(ip_buffer, buffer_size, "(No IP)");
     snprintf(interface_name, iface_size, "none");
-    
+
     if (getifaddrs(&ifaddr) == -1) {
         printf("Error getting IP address\n");
         return;
     }
-    
-    // First pass: Try to find eth1
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == NULL)
-            continue;
-        
-        family = ifa->ifa_addr->sa_family;
-        
-        // Check for IPv4 address specifically on eth1
-        if (family == AF_INET && strcmp(ifa->ifa_name, "eth1") == 0) {
+
+    // Walk the priority list in order; take the first interface that is
+    // UP + RUNNING and has an IPv4 address.
+    for (size_t i = 0; i < IFACE_PRIORITY_COUNT; i++) {
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr == NULL)
+                continue;
+            if (ifa->ifa_addr->sa_family != AF_INET)
+                continue;
+            if (strcmp(ifa->ifa_name, k_iface_priority[i].name) != 0)
+                continue;
+            if (!(ifa->ifa_flags & IFF_UP) || !(ifa->ifa_flags & IFF_RUNNING))
+                continue;
+
             struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
             inet_ntop(AF_INET, &addr->sin_addr, temp_ip, sizeof(temp_ip));
             snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
             strncpy(interface_name, ifa->ifa_name, iface_size - 1);
             interface_name[iface_size - 1] = '\0';
-            // printf("Found IP address: (%s) on interface: %s\n", temp_ip, ifa->ifa_name);
-            ip_found = true;
-            break;  // Found eth1, stop searching
+            freeifaddrs(ifaddr);
+            return;  // highest-priority connected interface wins
         }
     }
-    
-    // Second pass: If eth1 not found, try other interfaces (skip loopback)
-    if (!ip_found) {
-        printf("eth1 not found, trying other interfaces...\n");
-        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-            if (ifa->ifa_addr == NULL)
-                continue;
-            
-            family = ifa->ifa_addr->sa_family;
-            
-            // Check for IPv4 address on any interface except loopback
-            if (family == AF_INET && strcmp(ifa->ifa_name, "lo") != 0) {
-                struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
-                inet_ntop(AF_INET, &addr->sin_addr, temp_ip, sizeof(temp_ip));
-                snprintf(ip_buffer, buffer_size, "(%s)", temp_ip);
-                strncpy(interface_name, ifa->ifa_name, iface_size - 1);
-                interface_name[iface_size - 1] = '\0';
-                // printf("Found IP address: (%s) on interface: %s (fallback)\n", temp_ip, ifa->ifa_name);
-                ip_found = true;
-                break;  // Found alternative interface, stop searching
-            }
-        }
-    }
-    
-    freeifaddrs(ifaddr);
-    
-    // Log final status
-    if (!ip_found) {
-        printf("Warning: No IP address found on any interface\n");
-    }
-}
 
+    freeifaddrs(ifaddr);
+    printf("Warning: no connected interface among eth1/mlan0/wfd0\n");
+}
 
 // Timer callback to update IP address and network type periodically
 static void network_status_timer_cb(lv_timer_t * timer)
@@ -439,49 +451,21 @@ static void network_status_timer_cb(lv_timer_t * timer)
     // printf("Network status updated - IP: %s, Type: %s\n", ip_address, network_type);
 }
 
-// Function to detect network type (Ethernet or WiFi)
+// Function to detect network type (Wi-Fi or Wired) for the interface that
+// get_machine_ip() resolved as the active one.
+//
+// The type is derived purely from the interface name via the shared priority
+// table (eth1 = Wired, mlan0/wfd0 = Wi-Fi). This is deliberate:
+//   * The previous SIOCGIWNAME (Wireless Extensions) probe failed on modern
+//     cfg80211 drivers, and a /sys/class/net/<iface>/wireless check is also
+//     unreliable on the NXP/Marvell Wi-Fi driver, so capability probing gave
+//     false "Wired" results on real Wi-Fi.
+//   * Reusing the name get_machine_ip() already selected guarantees the
+//     reported type always matches the displayed IP, and costs nothing on the
+//     LVGL timer thread (no socket/ioctl/filesystem access).
 void get_network_type(const char *interface_name, char *type_buffer, size_t buffer_size) {
-    int sock;
-    struct ifreq ifr;
-    char wireless_path[64];
-    
-    // Default to Unknown
-    snprintf(type_buffer, buffer_size, "Unknown");
-
-    // No active interface was resolved by get_machine_ip().
-    if (interface_name == NULL || strcmp(interface_name, "none") == 0) {
-        return;
-    }
-
-    // Confirm the interface is UP and RUNNING (has an active link).
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        return;
-    }
-
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
-
-    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0 ||
-        !(ifr.ifr_flags & IFF_UP) || !(ifr.ifr_flags & IFF_RUNNING)) {
-        close(sock);
-        return;   // leaves "Unknown"
-    }
-
-    close(sock);
-
-    // Wireless netdevs expose /sys/class/net/<iface>/wireless; wired ones do not.
-    snprintf(wireless_path, sizeof(wireless_path),
-             "/sys/class/net/%s/wireless", interface_name);
-
-    if (access(wireless_path, F_OK) == 0) {
-        snprintf(type_buffer, buffer_size, "Wi-Fi");
-    } else {
-        snprintf(type_buffer, buffer_size, "Wired");
-    }
-
+    snprintf(type_buffer, buffer_size, "%s", iface_name_to_type(interface_name));
 }
-
 
 // Timer callback to check MQTT activity
 static void mqtt_watchdog_timer_cb(lv_timer_t * timer)
