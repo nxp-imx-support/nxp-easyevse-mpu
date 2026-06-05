@@ -172,6 +172,11 @@ static int mqtt_watchdog_missed_ticks = 0;
 // from charged vs discharged energy — so we relabel the wording ourselves.
 static bool g_is_discharging = false;
 
+/* Last raw EVerest session-event token (e.g. "ChargingStarted"), cached so the
+ * event label can be re-rendered with the correct Charging/Discharging wording
+ * once the direction becomes known from session_info energy flow. */
+static char g_last_event_raw[64] = "";
+
 // ============================================
 // BATTERY LEVEL CALCULATION VARIABLES
 // ============================================
@@ -1206,6 +1211,14 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             printf("=== SESSION EVENT: '%s' ===\n", event_value);
 
             if (strlen(event_value) > 0) {
+                /* Cache the raw event so the discharge wording can be
+                 * re-applied later: when "ChargingStarted" arrives the
+                 * direction is not yet known (it is derived from session_info
+                 * energy flow), so the first render is always "Charging ...".
+                 * The session_info direction block re-renders this on flip. */
+                strncpy(g_last_event_raw, event_value, sizeof(g_last_event_raw) - 1);
+                g_last_event_raw[sizeof(g_last_event_raw) - 1] = '\0';
+
                 char pretty_event[96];
                 format_state_or_event(event_value, pretty_event, sizeof(pretty_event));
                 ui_set_event(pretty_event);
@@ -1904,6 +1917,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
         
         // ========== Determine charging direction (G2V vs V2G) ==========
         // Only update direction during active session - prevents overwriting "NA" after session ends.
+        bool was_discharging = g_is_discharging;
         if (!session_end_processed && (has_energy || discharged_wh > 0)) {
             if (energy_wh > discharged_wh) {
                 g_is_discharging = false;
@@ -1933,6 +1947,20 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             // Outside an active session: reset to charging wording.
             g_is_discharging = false;
             ui_set_direction("Direction: NA", NULL, false);
+        }
+
+        /* Direction flipped mid-session: re-render the cached session event so
+         * the event label matches the now-known direction (e.g. the initial
+         * "Charging Started" becomes "Discharging Started" once V2G export is
+         * detected). Skipped after session end so a completed discharge keeps
+         * its "Discharging Finished" wording instead of reverting. Only fires
+         * on an actual change, so there is no per-tick label churn. */
+        if (!session_end_processed &&
+            g_is_discharging != was_discharging &&
+            g_last_event_raw[0] != '\0') {
+            char pretty_event[96];
+            format_state_or_event(g_last_event_raw, pretty_event, sizeof(pretty_event));
+            ui_set_event(pretty_event);
         }
 
         // ========== Parse transaction_duration_s ==========
