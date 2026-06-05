@@ -157,6 +157,14 @@ static bool start_time_captured = false;
 static bool pause_time_captured = false;
 static bool session_end_processed = false;
 
+/* Peak (= final, since the counters are monotonic) accumulated energy of the
+ * active session in Wh, taken as max(charged, discharged) so it works in both
+ * directions. Captured into the end-of-session popup's Used Energy field at
+ * popup time, so the figure shown does not depend on which energy branch wrote
+ * the summary last or on how EVerest orders its final messages. Reset at the
+ * start of each session. */
+static int g_session_energy_wh = 0;
+
 // Time calculation code end
 
 // Add these global variables at the top
@@ -1326,6 +1334,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
             ui_set_duration_summary(diff_time);
           if (is_session_started){
             printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            /* Snapshot the session's final energy into the popup's Used Energy
+             * field (screen_label_28) regardless of direction or message
+             * ordering. For a discharge session charged_energy_wh is ~0, so the
+             * summary would otherwise read 0.000 kWh; g_session_energy_wh holds
+             * the discharged total. */
+            {
+                char summary_energy[20];
+                snprintf(summary_energy, sizeof(summary_energy), "%.3f kWh",
+                         g_session_energy_wh / 1000.0f);
+                ui_set_energy_summary(summary_energy);
+            }
             // Queue popup display for main thread (after image settles, 150 ms)
             if (strcmp(event_value, "Enabled") != 0) {
                 ui_request_popup(g_is_discharging);
@@ -1390,6 +1409,7 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           eta_prev_discharged_wh = 0;
           eta_prev_duration_s = 0;
           eta_prev_valid = false;
+          g_session_energy_wh = 0;
           ui_clear_soc_bar();
       }
 
@@ -1878,7 +1898,17 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 if (energy_wh > 100000) energy_wh = 100000;
                 has_energy = true;
 
-                if (!charging_complete) {
+                /* Only drive the energy display from the charged counter for an
+                 * active charge session. In a V2G/discharge session
+                 * charged_energy_wh stays ~0, so without these guards this
+                 * branch writes "0.000 kWh" over the running energy and the
+                 * popup's Used Energy field (screen_label_28, via the summary),
+                 * and a trailing session_info after the session ends clobbers
+                 * the value to 0 - which is visible live in the popup. Skipping
+                 * when g_is_discharging or after session end makes it symmetric
+                 * with the discharge branch (already gated by
+                 * !session_end_processed). */
+                if (!charging_complete && !g_is_discharging && !session_end_processed) {
                     mqtt_energy_kwh = energy_wh / 1000.0f;
                     snprintf(final_energy, sizeof(final_energy), "%.3f kWh", mqtt_energy_kwh);
 
@@ -1908,7 +1938,18 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
                 if (discharged_wh < 0) discharged_wh = 0;
             }
         }
-        
+
+        /* Track the session's final energy for the end-of-session popup. The
+         * counters are monotonic during a session, so the running max over
+         * max(charged, discharged) is the final total in whichever direction
+         * the session ran. Only while the session is live. */
+        if (!session_end_processed) {
+            int active_wh = (discharged_wh > energy_wh) ? discharged_wh : energy_wh;
+            if (active_wh > g_session_energy_wh) {
+                g_session_energy_wh = active_wh;
+            }
+        }
+
         // ========== Determine charging direction (G2V vs V2G) ==========
         // Only update direction during active session - prevents overwriting "NA" after session ends.
         bool was_discharging = g_is_discharging;
