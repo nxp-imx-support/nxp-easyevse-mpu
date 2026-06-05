@@ -35,8 +35,6 @@
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <sys/ioctl.h>
-#include <linux/wireless.h>
-
 
 LV_IMG_DECLARE(_arrow_red_alpha_80x67);
 LV_IMG_DECLARE(_arrow_green_alpha_80x67);
@@ -436,66 +434,44 @@ static void network_status_timer_cb(lv_timer_t * timer)
 // Function to detect network type (Ethernet or WiFi)
 void get_network_type(const char *interface_name, char *type_buffer, size_t buffer_size) {
     int sock;
-    struct iwreq wrq;
     struct ifreq ifr;
+    char wireless_path[64];
     
     // Default to Unknown
     snprintf(type_buffer, buffer_size, "Unknown");
-    
-    // printf("=== Network Type Detection ===\n");
-    // printf("Interface name: %s\n", interface_name);
-    
-    // Skip if no interface name
-    if (strcmp(interface_name, "none") == 0) {
-        printf("No interface found\n");
+
+    // No active interface was resolved by get_machine_ip().
+    if (interface_name == NULL || strcmp(interface_name, "none") == 0) {
         return;
     }
-    
-    // Create a socket
+
+    // Confirm the interface is UP and RUNNING (has an active link).
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        printf("Error creating socket for network type detection\n");
         return;
     }
-    
-    // Check if interface is UP and RUNNING
-    memset(&ifr, 0, sizeof(struct ifreq));
+
+    memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
-    
-    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
-        printf("Error getting interface flags for %s\n", interface_name);
+
+    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0 ||
+        !(ifr.ifr_flags & IFF_UP) || !(ifr.ifr_flags & IFF_RUNNING)) {
         close(sock);
-        return;
+        return;   // leaves "Unknown"
     }
-    
-    // printf("Interface flags: 0x%x\n", ifr.ifr_flags);
-    // printf("IFF_UP: %d\n", !!(ifr.ifr_flags & IFF_UP));
-    // printf("IFF_RUNNING: %d\n", !!(ifr.ifr_flags & IFF_RUNNING));
-    
-    // Check if interface is UP and RUNNING (has active connection)
-    if (!(ifr.ifr_flags & IFF_UP) || !(ifr.ifr_flags & IFF_RUNNING)) {
-        // printf("Interface %s is not active (no network connection)\n", interface_name);
-        snprintf(type_buffer, buffer_size, "Unknown");
-        close(sock);
-        return;
-    }
-    
-    // Try to get wireless info
-    memset(&wrq, 0, sizeof(struct iwreq));
-    strncpy(wrq.ifr_name, interface_name, IFNAMSIZ - 1);
-    
-    // If ioctl succeeds, it's a wireless interface
-    if (ioctl(sock, SIOCGIWNAME, &wrq) >= 0) {
-        snprintf(type_buffer, buffer_size, "Wi-Fi");
-        // printf("Interface %s is Wi-Fi (active)\n", interface_name);
-    } else {
-        // Not wireless, it's wired/ethernet
-        snprintf(type_buffer, buffer_size, "Wired");
-        // printf("Interface %s is Wired/Ethernet (active)\n", interface_name);
-    }
-    
+
     close(sock);
-    // printf("=== End Detection ===\n");
+
+    // Wireless netdevs expose /sys/class/net/<iface>/wireless; wired ones do not.
+    snprintf(wireless_path, sizeof(wireless_path),
+             "/sys/class/net/%s/wireless", interface_name);
+
+    if (access(wireless_path, F_OK) == 0) {
+        snprintf(type_buffer, buffer_size, "Wi-Fi");
+    } else {
+        snprintf(type_buffer, buffer_size, "Wired");
+    }
+
 }
 
 
