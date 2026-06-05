@@ -214,6 +214,14 @@ static float charging_rate_wh_per_sec = 0.0f;
 static float smoothed_charging_rate = 0.0f;
 static const float EMA_ALPHA = 0.2f;  // Smoothing factor (0.2 = balanced)
 
+// ETA interval-rate tracking. The ETA rate is computed from the energy/duration
+// delta of the latest session_info interval (not the cumulative average), so it
+// collapses to ~0 the moment transfer stops and the displayed ETA can be frozen
+// instead of inflating. Baseline from the previous tick:
+static int  eta_prev_energy_wh     = 0;   // charged_energy_wh at last tick
+static int  eta_prev_discharged_wh = 0;   // discharged_energy_wh at last tick
+static int  eta_prev_duration_s    = 0;   // transaction_duration_s at last tick
+static bool eta_prev_valid         = false;
 
 static bool mqtt_connected = false;
 static lv_timer_t * mqtt_reconnect_timer = NULL;
@@ -1278,6 +1286,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           charging_rate_wh_per_sec = 0.0f;
           smoothed_charging_rate = 0.0f;
           charging_complete = false;  // Reset for new session
+          // Reset ETA interval-rate baseline so the next session starts fresh.
+          eta_prev_energy_wh = 0;
+          eta_prev_discharged_wh = 0;
+          eta_prev_duration_s = 0;
+          eta_prev_valid = false;
           printf("Battery and ETA calculation variables reset for new session\n");
           // =========================================================
           
@@ -1396,6 +1409,11 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
           ui_arm_popup();
           g_is_discharging = false;
           g_soc_source_protocol = false;
+          // Reset ETA interval-rate baseline at the start of a new session.
+          eta_prev_energy_wh = 0;
+          eta_prev_discharged_wh = 0;
+          eta_prev_duration_s = 0;
+          eta_prev_valid = false;
           ui_clear_soc_bar();
       }
 
@@ -2014,24 +2032,54 @@ int messageArrived(void *context, char *topic, int topicLen, MQTTClient_message 
 
         // ========== Calculate Estimated Remaining Time ==========
         // Symmetric formula: ETA = remaining_to_target / rate.
-        //   G2V (charge):   target = full, remaining = energy still needed,
-        //                   rate   = charged_wh / duration.
+        //   G2V (charge):   target = full, remaining = energy still needed.
         //   V2G (discharge): target = discharge floor (0 = empty),
-        //                   remaining = energy currently in battery above floor,
-        //                   rate   = discharged_wh / duration.
+        //                   remaining = energy currently in battery above floor.
         // update_estimated_remaining_time() is itself direction-agnostic — it
         // just smooths the rate and divides.
+        //
+        // The rate is now derived from the energy delta over the duration delta
+        // of the latest interval, NOT from the cumulative average
+        // (energy / transaction_duration_s). With the cumulative average, once
+        // the EV stopped transferring but the transaction stayed open,
+        // transaction_duration_s kept growing while the energy counter held, so
+        // the average rate decayed and ETA = remaining / rate climbed without
+        // bound. The interval rate goes to ~0 as soon as transfer stops, which
+        // also lets us freeze the displayed value instead of inflating it.
         if (has_duration && duration_seconds > 0 && initial_remaining_captured) {
-            if (g_is_discharging && discharged_wh > 0) {
-                float discharge_rate = (float)discharged_wh / (float)duration_seconds;
-                float energy_in_battery = battery_capacity_wh - current_remaining_energy_wh;
-                const float discharge_floor_wh = 0.0f;  // empty target; configurable later
-                float remaining_to_floor = energy_in_battery - discharge_floor_wh;
-                charging_rate_wh_per_sec = discharge_rate;
-                update_estimated_remaining_time(remaining_to_floor, discharge_rate);
-            } else if (has_energy) {
-                charging_rate_wh_per_sec = (float)energy_wh / (float)duration_seconds;
-                update_estimated_remaining_time(current_remaining_energy_wh, charging_rate_wh_per_sec);
+            // Energy/duration moved since the previous session_info tick.
+            int d_dur = eta_prev_valid ? (duration_seconds - eta_prev_duration_s)
+                                       : duration_seconds;
+            int d_xfer = g_is_discharging
+                ? (eta_prev_valid ? (discharged_wh - eta_prev_discharged_wh) : discharged_wh)
+                : (eta_prev_valid ? (energy_wh     - eta_prev_energy_wh)     : energy_wh);
+
+            // Advance the interval baseline every tick (even when frozen) so a
+            // pause is excluded from the rate when transfer later resumes.
+            eta_prev_energy_wh     = energy_wh;
+            eta_prev_discharged_wh = discharged_wh;
+            eta_prev_duration_s    = duration_seconds;
+            eta_prev_valid         = true;
+
+            // Freeze the ETA when no energy moved this interval (transfer
+            // complete, paused, or session lingering open) or the EV declared
+            // completion: leave the last value on screen rather than recompute
+            // from a collapsing rate. It resumes counting down automatically
+            // once energy starts moving again.
+            bool transfer_stalled = (d_dur <= 0) || (d_xfer <= 0);
+            if (!charging_complete && !transfer_stalled) {
+                if (g_is_discharging) {
+                    float energy_in_battery = battery_capacity_wh - current_remaining_energy_wh;
+                    const float discharge_floor_wh = 0.0f;  // empty target; configurable later
+                    float remaining_to_floor = energy_in_battery - discharge_floor_wh;
+                    float discharge_rate = (float)d_xfer / (float)d_dur;
+                    charging_rate_wh_per_sec = discharge_rate;
+                    update_estimated_remaining_time(remaining_to_floor, discharge_rate);
+                } else {
+                    charging_rate_wh_per_sec = (float)d_xfer / (float)d_dur;
+                    update_estimated_remaining_time(current_remaining_energy_wh,
+                                                    charging_rate_wh_per_sec);
+                }
             }
         }
 
