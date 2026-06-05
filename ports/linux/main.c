@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: MIT
- * Copyright 2023 NXP
+ * Copyright 2023, 2026 NXP
  */
 
 /*********************
@@ -113,6 +113,10 @@ static void hal_init(void)
 
     /* Create a display */
     lv_disp_t * disp = lv_wayland_create_window(LV_HOR_RES_MAX, LV_VER_RES_MAX, "GUI Guider", close_cb);
+
+    if (disp != NULL && disp->driver != NULL) {
+        disp->driver->full_refresh = 1;
+    }
 
     /* Tick init.
      * You have to call 'lv_tick_inc()' in periodically to inform LittelvGL about how much time were elapsed
