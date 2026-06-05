@@ -54,7 +54,9 @@ typedef struct
 	lv_obj_t *screen_label_4;
 	lv_obj_t *screen_img_14;
 	lv_obj_t *screen_img_15;
-	lv_obj_t *screen_label_32;
+	lv_obj_t *screen_temp_container;
+	lv_obj_t *screen_label_deg;
+	lv_obj_t *screen_label_c;
 	lv_obj_t *screen_label_33;
 	lv_obj_t *screen_slider_2;
 	lv_obj_t *screen_label_34;
